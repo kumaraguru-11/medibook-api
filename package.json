@@ -1,0 +1,29 @@
+{
+  "name": "medibook-api",
+  "version": "1.0.0",
+  "description": "RESTful API for a doctor appointment booking application enabling patient registration, doctor discovery, scheduling, and appointment management.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "node build.js",
+    "start": "nodemon index.js",
+    "serve": "node dist/index.js",
+    "migrate": "node migrations/script/migrate.js"
+  },
+  "author": "kumaraguru.s",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "glob": "^13.0.6",
+    "nodemon": "^3.1.14"
+  }
+}
