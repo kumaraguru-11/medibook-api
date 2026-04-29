@@ -32,3 +32,10 @@ exports.saveRefreshToken = async (userId, token) => {
   `;
   await pool.query(query, [token, userId]);
 };
+
+exports.getAllUsers = async () => {
+  const query = `SELECT id,email,name,role FROM users`;
+
+  const result = await pool.query(query);
+  return result.rows;
+};

@@ -1,4 +1,5 @@
 const authService = require("./auth.service");
+const authRepo = require("./auth.repo");
 const { ApiError, ApiResponse } = require("../../utils/httpsResponse");
 
 exports.register = async (req, res, next) => {
@@ -46,6 +47,15 @@ exports.refresh = async (req, res, next) => {
     res
       .status(200)
       .json(new ApiResponse(result, "Access token refreshed successfully"));
+  } catch (e) {
+    next(e);
+  }
+};
+
+exports.user = async (req, res, next) => {
+  try {
+    const users = await authRepo.getAllUsers();
+    res.status(200).json(new ApiResponse(users));
   } catch (e) {
     next(e);
   }
