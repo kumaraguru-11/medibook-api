@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken");
 const { ApiError } = require("./httpsResponse");
 const { access_secret, refresh_secret } = require("../config/env");
 
-const access_expiry = "1m";
+const access_expiry = "15m";
 const refresh_expiry = "7d";
 
 exports.generateAccessToken = (data) => {

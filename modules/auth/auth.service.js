@@ -7,7 +7,7 @@ const {
   validateRefreshToken,
 } = require("../../utils/jwtToken");
 
-exports.registerUserService = async (email, password, role) => {
+exports.registerUserService = async (email, password) => {
   // Check missing fields
   if (!email || !password) {
     throw new ApiError("Email and password are required", 400);
@@ -26,7 +26,7 @@ exports.registerUserService = async (email, password, role) => {
 
   const hashedpassword = await bcrypt.hash(password, 10);
 
-  return await authRepo.createUser(email, hashedpassword, role);
+  return await authRepo.createUser(email, hashedpassword);
 };
 
 exports.loginUserService = async (email, password) => {

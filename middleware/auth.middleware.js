@@ -4,8 +4,6 @@ const { validateAccessToken } = require("../utils/jwtToken");
 module.exports = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    console.log(authHeader);
-
     if (!authHeader) {
       throw new ApiError("Unauthorized: No token provided", 401);
     }

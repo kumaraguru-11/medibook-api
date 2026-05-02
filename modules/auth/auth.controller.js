@@ -1,6 +1,6 @@
 const authService = require("./auth.service");
 const authRepo = require("./auth.repo");
-const { ApiError, ApiResponse } = require("../../utils/httpsResponse");
+const { ApiResponse } = require("../../utils/httpsResponse");
 
 exports.register = async (req, res, next) => {
   try {

@@ -1,15 +1,15 @@
 const pool = require("../../config/db");
 
-exports.createUser = async (email, password, role = "user") => {
+exports.createUser = async (email, password ) => {
   const userName = email.split("@")[0];
 
   const query = `
-     INSERT INTO users (name,email,password,role)
-     VALUES ($1,$2,$3,$4)
-     RETURNING id, name, email, role
+     INSERT INTO users (name,email,password)
+     VALUES ($1,$2,$3)
+     RETURNING id, name, email
   `;
 
-  const values = [userName, email, password, role];
+  const values = [userName, email, password];
 
   const result = await pool.query(query, values);
   return result.rows[0];
