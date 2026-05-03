@@ -4,10 +4,7 @@ const userController = require("./user.controller");
 
 const router = express.Router();
 
-router.get(
-  "/me",
-  authMiddleware,
-  userController.getUserById,
-);
+router.get("/me", authMiddleware, userController.getUserById);
+router.patch("/me", authMiddleware, userController.updateUser);
 
 module.exports = router;
