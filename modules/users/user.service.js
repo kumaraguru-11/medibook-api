@@ -38,7 +38,6 @@ exports.getUserById = async (user) => {
 
 exports.updateUser = async (userId, userData) => {
   const existingUser = await userRepo.getUserById(userId);
-  console.log(existingUser)
   if (!existingUser) {
     throw new ApiError("User not found", 404);
   }
