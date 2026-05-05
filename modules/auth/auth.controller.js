@@ -4,11 +4,11 @@ const { ApiResponse } = require("../../utils/httpsResponse");
 
 exports.register = async (req, res, next) => {
   try {
-    const { email, password, role } = req.body;
+    const { name, email, password } = req.body;
     const newUser = await authService.registerUserService(
+      name,
       email,
       password,
-      role,
     );
     res
       .status(201)
@@ -52,11 +52,3 @@ exports.refresh = async (req, res, next) => {
   }
 };
 
-exports.user = async (req, res, next) => {
-  try {
-    const users = await authRepo.getAllUsers();
-    res.status(200).json(new ApiResponse(users));
-  } catch (e) {
-    next(e);
-  }
-};

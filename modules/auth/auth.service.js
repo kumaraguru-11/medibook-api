@@ -1,4 +1,5 @@
 const authRepo = require("./auth.repo");
+const userRepo = require("../users/user.repo");
 const { ApiError } = require("../../utils/httpsResponse");
 const bcrypt = require("bcrypt");
 const {
@@ -7,10 +8,10 @@ const {
   validateRefreshToken,
 } = require("../../utils/jwtToken");
 
-exports.registerUserService = async (email, password) => {
+exports.registerUserService = async (name, email, password) => {
   // Check missing fields
-  if (!email || !password) {
-    throw new ApiError("Email and password are required", 400);
+  if (!email || !password || !name) {
+    throw new ApiError("All fields are required", 400);
   }
 
   //Basic email format check
@@ -26,7 +27,7 @@ exports.registerUserService = async (email, password) => {
 
   const hashedpassword = await bcrypt.hash(password, 10);
 
-  return await authRepo.createUser(email, hashedpassword);
+  return await userRepo.createUser(name.toLowerCase(), email, hashedpassword);
 };
 
 exports.loginUserService = async (email, password) => {
@@ -41,7 +42,7 @@ exports.loginUserService = async (email, password) => {
     throw new ApiError("Invalid email format", 400);
   }
 
-  const user = await authRepo.getUserByEmail(email);
+  const user = await userRepo.getUserByEmail(email);
   if (!user) {
     throw new ApiError("User not found", 404);
   }
@@ -91,7 +92,7 @@ exports.refreshAccessTokenService = async (token) => {
     throw new ApiError("Invalid or expired refresh token", 401);
   }
 
-  const user = await authRepo.getUserByEmail(decoded.email);
+  const user = await userRepo.getUserByEmail(decoded.email);
 
   if (!user) {
     throw new ApiError("User not found", 404);

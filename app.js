@@ -5,6 +5,7 @@ const errorHandler = require("./middleware/errorHandler");
 
 const authRoutes = require("./modules/auth/auth.route");
 const userRoutes = require("./modules/users/user.route");
+const doctorRoutes = require("./modules/doctor/doctor.route");
 
 const app = express();
 
@@ -13,7 +14,8 @@ app.use(helmet());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/doctor", doctorRoutes);
 
 app.use(errorHandler);
 

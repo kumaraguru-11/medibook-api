@@ -1,5 +1,29 @@
 const pool = require("../../config/db");
 
+exports.createUser = async (name, email, password, role = "UNASSIGNED") => {
+  const query = `
+     INSERT INTO users (name,email,password,role)
+     VALUES ($1,$2,$3,$4)
+     RETURNING id, name, email, role
+  `;
+
+  const values = [name, email, password, role];
+
+  const result = await pool.query(query, values);
+  return result.rows[0];
+};
+
+exports.getUserByEmail = async (email) => {
+  const query = `
+    SELECT id,name,email,password,role,refresh_token
+    FROM users
+    WHERE email = $1 
+    `;
+
+  const result = await pool.query(query, [email]);
+  return result.rows[0];
+};
+
 exports.getUserById = async (id) => {
   const query = `
     SELECT *
@@ -12,21 +36,18 @@ exports.getUserById = async (id) => {
 };
 
 exports.updateUser = async (userId, userData) => {
-  const { name, specialty, experience, description, role } = userData;
+  const { name, role } = userData;
 
   const query = `
     UPDATE users
     SET 
       name = COALESCE($1, name),
-      specialty = COALESCE($2, specialty),
-      experience = COALESCE($3, experience),
-      description = COALESCE($4, description),
-      role = COALESCE($5, role)
-    WHERE id = $6
+      role = COALESCE($2, role)
+    WHERE id = $3
     RETURNING *
   `;
 
-  const values = [name, specialty, experience, description, role, userId];
+  const values = [name, role, userId];
 
   const result = await pool.query(query, values);
   return result.rows[0];

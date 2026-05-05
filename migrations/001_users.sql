@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    role VARCHAR(20) CHECK (role IN ('USER', 'DOCTOR', 'ADMIN')) NOT NULL,
+    role VARCHAR(20) CHECK (role IN ('USER', 'DOCTOR', 'ADMIN','UNASSIGNED')) NOT NULL,
     refresh_token TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
