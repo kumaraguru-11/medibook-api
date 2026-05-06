@@ -3,14 +3,6 @@ const doctorRepo = require("./doctor.repo");
 const userRepo = require("../users/user.repo");
 
 exports.updateDoctorProfile = async (userId, doctorData) => {
-  const existingUser = await userRepo.getUserById(userId);
-  if (!existingUser) {
-    throw new ApiError("User not found", 404);
-  }
-  if (existingUser.role !== "DOCTOR") {
-    throw new ApiError("User is not a doctor", 400);
-  }
-
   if (doctorData === undefined || Object.keys(doctorData).length === 0) {
     throw new ApiError("No fields provided to update", 400);
   }
@@ -57,7 +49,7 @@ exports.createDoctorAvailability = async (userId, availabilityData) => {
     availabilityData,
   );
 
-  if (!createdAvailability) {
+  if (!createdAvailability || createdAvailability.length === 0) {
     throw new ApiError("Failed to create availability", 500);
   }
 

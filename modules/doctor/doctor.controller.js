@@ -39,3 +39,23 @@ exports.createDoctorAvailability = async (req, res, next) => {
     next(e);
   }
 };
+
+
+/**
+ * Select Date: [ 2026-05-06 📅 ]
+
+Start Time: [ 10:00 AM ⏰ ]
+End Time:   [ 02:00 PM ⏰ ]
+
+Slot Duration: [ 30 min ▼ ]
+
+[ Add Availability ]
+
+
+
+
+Monday     [10:00 – 2:00]  [+ Add]
+Tuesday    [10:00 – 2:00]
+Wednesday  [Off]
+Thursday   [4:00 – 8:00]
+ */

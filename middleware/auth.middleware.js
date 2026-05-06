@@ -1,7 +1,8 @@
 const { ApiError } = require("../utils/httpsResponse");
 const { validateAccessToken } = require("../utils/jwtToken");
+const userRepo = require("../modules/users/user.repo");
 
-module.exports = (req, res, next) => {
+module.exports = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -15,8 +16,18 @@ module.exports = (req, res, next) => {
     //Verify token
     const decoded = validateAccessToken(token);
 
-    // 3. Attach user to request
-    req.user = decoded;
+    // Fetch latest user data from DB
+    const user = await userRepo.getUserById(decoded.id);
+
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    delete user.password; 
+    delete user.refresh_token;
+    delete user.created_at;
+    // Attach user to request
+    req.user = user;
 
     next();
   } catch (err) {
