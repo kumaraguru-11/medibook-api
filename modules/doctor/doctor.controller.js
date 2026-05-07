@@ -40,6 +40,26 @@ exports.createDoctorAvailability = async (req, res, next) => {
   }
 };
 
+exports.updateDoctorAvailability = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const availabilityData = req.body;
+    const updatedAvailability = await doctorService.updateDoctorAvailability(
+      userId,
+      availabilityData
+    );
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          updatedAvailability,
+          "Doctor availability updated successfully!"
+        )
+      );
+  } catch (e) {
+    next(e);
+  }
+};
 
 /**
  * Select Date: [ 2026-05-06 📅 ]

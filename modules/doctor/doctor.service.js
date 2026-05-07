@@ -55,3 +55,30 @@ exports.createDoctorAvailability = async (userId, availabilityData) => {
 
   return createdAvailability;
 };
+
+exports.updateDoctorAvailability = async (userId, availabilityData) => {
+  const existingDoctor = await doctorRepo.getDoctorByUserId(userId);
+  if (!existingDoctor) {
+    throw new ApiError("Doctor not found", 404);
+  }
+
+  if (!Array.isArray(availabilityData) || availabilityData.length === 0) {
+    throw new ApiError("Availability data must be a non-empty array", 400);
+  }
+
+  // check slots exist and belong to doctor
+  const slotIds = availabilityData.map((slot) => slot.id);
+  const existingSlots = await doctorRepo.checkSlotsByIds(
+    existingDoctor.id,
+    slotIds,
+  );
+
+  if (existingSlots.length !== slotIds.length) {
+    throw new ApiError(
+      "One or more slots do not exist or do not belong to the doctor",
+      400,
+    );
+  }
+
+  
+};

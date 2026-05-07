@@ -63,3 +63,31 @@ exports.createDoctorAvailability = async (doctorId, availabilityData) => {
   ]);
   return rows;
 };
+
+exports.checkSlotsByIds = async (doctorId, slotIds) => {
+  const query = `
+  SELECT * FROM availability
+  WHERE doctor_id = $1 AND id = ANY($2::int[])
+  `;
+
+  const { rows } = await pool.query(query, [doctorId, slotIds]);
+  return rows;
+};
+
+exports.updateDoctorAvailability = async (doctorId, availibilityData) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    for (const slot of availibilityData) {
+      const fields = [];
+      const values = [];
+      let index = 1;
+
+      if (slot.date !== undefined) {
+        fields.push(`date = $${index++}`);
+        values.push(slot.date);
+      }
+    }
+  } catch (e) {}
+};
