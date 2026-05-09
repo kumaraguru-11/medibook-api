@@ -17,5 +17,11 @@ router.post(
   allowRoles("DOCTOR"),
   doctorController.createDoctorAvailability,
 );
+router.patch(
+  "/availability",
+  authMiddleware,
+  allowRoles("DOCTOR"),
+  doctorController.updateDoctorAvailability
+);
 
 module.exports = router;

@@ -27,7 +27,7 @@ EXCLUDE USING gist (
         (date + start_time)::timestamp,
         (date + end_time)::timestamp
     ) WITH &&
-)
+);
 -- WHERE (status = 'AVAILABLE');
 
 -- Index for faster lookups by doctor and date

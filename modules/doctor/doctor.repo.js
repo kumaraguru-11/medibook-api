@@ -74,20 +74,110 @@ exports.checkSlotsByIds = async (doctorId, slotIds) => {
   return rows;
 };
 
-exports.updateDoctorAvailability = async (doctorId, availibilityData) => {
+// exports.updateDoctorAvailability = async (doctorId, availibilityData) => {
+//   const client = await pool.connect();
+//   try {
+//     await client.query("BEGIN");
+//     const updatedRows = [];
+
+//     for (const slot of availibilityData) {
+//       const fields = [];
+//       const values = [];
+//       let index = 1;
+
+//       if (slot.date !== undefined) {
+//         fields.push(`date = $${index++}`);
+//         values.push(slot.date);
+//       }
+
+//       if (slot.startTime !== undefined) {
+//         fields.push(`startTime=$${index++}`);
+//         values.push(slot.startTime);
+//       }
+
+//       if (slot.endTime !== undefined) {
+//         fields.push(`endTime=$${index++}`);
+//         values.push(slot.endTime);
+//       }
+
+//       if (fields.length === 0) continue;
+
+//       values.push(slot.id);
+//       values.push(doctorId);
+
+//       const query = `
+//         UPDATE availability
+//         SET ${fields.join(", ")}
+//         WHERE id = $${index++} AND doctor_id = $${index}
+//         RETURNING *;
+//       `;
+
+//       const { rows } = await pool.query(query, values);
+
+//       updatedRows.push(rows[0]);
+//     }
+
+//     await client.query("COMMIT");
+//     return updatedRows;
+//   } catch (e) {
+//     await client.query("ROLLBACK");
+//     throw e;
+//   } finally {
+//     await client.release();
+//   }
+// };
+
+exports.updateDoctorAvailability = async (doctorId, availabilityData) => {
   const client = await pool.connect();
+
   try {
     await client.query("BEGIN");
 
-    for (const slot of availibilityData) {
-      const fields = [];
-      const values = [];
-      let index = 1;
+    const values = [];
+    const placeholders = [];
 
-      if (slot.date !== undefined) {
-        fields.push(`date = $${index++}`);
-        values.push(slot.date);
-      }
+    let index = 1;
+
+    for (const slot of availabilityData) {
+      placeholders.push(`($${index++}, $${index++}, $${index++}, $${index++})`);
+
+      values.push(slot.id, slot.date, slot.startTime, slot.endTime);
     }
-  } catch (e) {}
+
+    values.push(Number(doctorId));
+
+    const query = `
+      UPDATE availability AS a
+      SET
+        date = v.date::date,
+        start_time = v.startTime::time,
+        end_time = v.endTime::time
+      FROM (
+        VALUES
+          ${placeholders.join(", ")}
+      ) AS v(id, date, startTime, endTime)   -- Create temporary table in query level
+      WHERE
+        a.id = v.id::int
+        AND a.doctor_id = $${index}
+        AND (
+          a.date IS DISTINCT FROM v.date::date
+          OR a.start_time IS DISTINCT FROM v.startTime::time
+          OR a.end_time IS DISTINCT FROM v.endTime::time
+        )
+      RETURNING a.*;
+    `;
+
+    const { rows } = await client.query(query, values);
+    // console.log("Query:", query);
+    // console.log("Values:", values);
+
+    await client.query("COMMIT");
+
+    return rows;
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 };

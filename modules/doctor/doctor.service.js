@@ -80,5 +80,5 @@ exports.updateDoctorAvailability = async (userId, availabilityData) => {
     );
   }
 
-  
+  return await doctorRepo.updateDoctorAvailability(existingDoctor.id, availabilityData);
 };
