@@ -5,7 +5,6 @@ CREATE TABLE IF NOT EXISTS doctor_blocks (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     reason TEXT,
-
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     CHECK (start_time < end_time)
