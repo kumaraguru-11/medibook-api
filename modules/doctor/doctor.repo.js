@@ -7,6 +7,13 @@ exports.getDoctorByUserId = async (userId) => {
   return result.rows[0];
 };
 
+exports.getDoctorById = async (doctorId) => {
+  const query = `SELECT * FROM doctors where id = $1`;
+  const values = [doctorId];
+  const result = await pool.query(query, values);
+  return result.rows[0];
+};
+
 exports.createDoctor = async (userId) => {
   const query = `
     INSERT INTO doctors (user_id)
@@ -72,6 +79,29 @@ exports.checkSlotsByIds = async (doctorId, slotIds) => {
 
   const { rows } = await pool.query(query, [doctorId, slotIds]);
   return rows;
+};
+
+exports.checkAvailabilityExists = async (availability) => {
+  const query = `
+  SELECT *
+  FROM availability
+  WHERE doctor_id = $1
+  AND date = $2
+  AND start_time <= $3
+  AND end_time >= $4
+  AND status = 'AVAILABLE'
+  LIMIT 1;
+  `;
+
+  const values = [
+    availability.doctor_id,
+    availability.date,
+    availability.start_time,
+    availability.end_time,
+  ];
+
+  const { rows } = await pool.query(query, values);
+  return rows[0];
 };
 
 // exports.updateDoctorAvailability = async (doctorId, availibilityData) => {
