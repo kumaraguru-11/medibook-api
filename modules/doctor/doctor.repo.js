@@ -95,7 +95,7 @@ exports.checkAvailabilityExists = async (availability) => {
 
   const values = [
     availability.doctor_id,
-    availability.date,
+    availability.appointment_date,
     availability.start_time,
     availability.end_time,
   ];

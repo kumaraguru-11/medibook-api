@@ -27,7 +27,7 @@ exports.createAppointment = async (userId, appointmentData) => {
 
   // Validate time range
   if (appointmentData.start_time >= appointmentData.end_time) {
-    throw new ApiError("start_time must be less than end_time", 400);
+    throw new ApiError("startTime must be less than endTime", 400);
   }
 
   // Check doctor exists
@@ -56,4 +56,64 @@ exports.createAppointment = async (userId, appointmentData) => {
   );
 
   return createdAppointment;
+};
+
+exports.getAppointments = async (filters) => {
+  const allowedStatuses = [
+    "SCHEDULED",
+    "COMPLETED",
+    "CANCELLED",
+    "RESCHEDULE_REQUIRED",
+  ];
+
+  // Validate status
+  if (filters.status && !allowedStatuses.includes(filters.status)) {
+    throw new ApiError("Invalid appointment status", 400);
+  }
+
+  const appointments = await appointmentRepo.getAppointments(filters);
+
+  return appointments;
+};
+
+exports.cancelAppointment = async (userId, appointmentId) => {
+  if (!appointmentId) {
+    throw new ApiError("Appointment id is required", 400);
+  }
+
+  const appointment = await appointmentRepo.getAppointmentById(appointmentId);
+
+  // Check appointment exists
+  if (!appointment) {
+    throw new ApiError("Appointment not found", 404);
+  }
+
+  // Check ownership
+  if (appointment.user_id !== userId) {
+    throw new ApiError("You are not allowed to cancel this appointment", 403);
+  }
+
+  // Already cancelled
+  if (appointment.status === "CANCELLED") {
+    throw new ApiError("Appointment already cancelled", 400);
+  }
+
+  // Completed appointment cannot cancel
+  if (appointment.status === "COMPLETED") {
+    throw new ApiError("Completed appointment cannot be cancelled", 400);
+  }
+
+  // Prevent cancelling past appointments
+  const appointmentDateTime = new Date(
+    `${appointment.appointment_date}T${appointment.start_time}`,
+  );
+
+  if (appointmentDateTime < new Date()) {
+    throw new ApiError("Past appointments cannot be cancelled", 400);
+  }
+
+  const cancelledAppointment =
+    await appointmentRepo.cancelAppointment(appointmentId);
+
+  return cancelledAppointment;
 };

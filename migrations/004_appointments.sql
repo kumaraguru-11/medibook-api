@@ -63,4 +63,4 @@ EXCLUDE USING gist (
         (appointment_date + end_time)::timestamp
     ) WITH &&
 )
-WHERE (status = 'SCHEDULED');
+WHERE (status IN ('SCHEDULED', 'COMPLETED'));

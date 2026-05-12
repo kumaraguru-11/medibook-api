@@ -22,3 +22,40 @@ exports.createAppointment = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getAppointment = async (req, res, next) => {
+  try {
+    const filters = {
+      user_id: req.query.userId,
+      doctor_id: req.query.doctorId,
+      status: req.query.status,
+      appointment_date: req.query.date,
+    };
+
+    const appointments = await appointmentService.getAppointments(filters);
+
+    return res
+      .status(200)
+      .json(new ApiResponse("Appointments fetched successfully", appointments));
+  } catch (e) {
+    next(e);
+  }
+};
+
+exports.cancelAppointment = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const appointmentId = req.params.id;
+
+    const appointment = await appointmentService.cancelAppointment(
+      userId,
+      appointmentId,
+    );
+
+    return res
+      .status(200)
+      .json(new ApiResponse("Appointment cancelled successfully"));
+  } catch (e) {
+    next(e);
+  }
+};

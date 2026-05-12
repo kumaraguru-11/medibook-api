@@ -7,10 +7,18 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-router.post(
+router.post("/", allowRoles("USER"), appointmentController.createAppointment);
+
+router.get(
   "/",
-  allowRoles("USER"),
-  appointmentController.createAppointment,
+  allowRoles(["USER", "DOCTOR"]),
+  appointmentController.getAppointment,
+);
+
+router.patch(
+  "/:id/cancel",
+  allowRoles(["USER"]),
+  appointmentController.cancelAppointment,
 );
 
 module.exports = router;
