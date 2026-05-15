@@ -1,6 +1,8 @@
 const { ApiError } = require("../../utils/httpsResponse");
+
 const doctorRepo = require("./doctor.repo");
-const userRepo = require("../users/user.repo");
+
+const { validateSlot } = require("../../utils/validationHelper");
 
 exports.updateDoctorProfile = async (userId, doctorData) => {
   if (doctorData === undefined || Object.keys(doctorData).length === 0) {
@@ -20,11 +22,13 @@ exports.updateDoctorProfile = async (userId, doctorData) => {
   }
 
   const updatedDoctor = await doctorRepo.updateDoctor(userId, doctorData);
+
   return updatedDoctor;
 };
 
 exports.createDoctorAvailability = async (userId, availabilityData) => {
   const existingDoctor = await doctorRepo.getDoctorByUserId(userId);
+
   if (!existingDoctor) {
     throw new ApiError("Doctor not found", 404);
   }
@@ -33,15 +37,8 @@ exports.createDoctorAvailability = async (userId, availabilityData) => {
     throw new ApiError("Availability data must be a non-empty array", 400);
   }
 
-  // Validate each slot in the availability data
   for (const slot of availabilityData) {
-    if (!slot.date || !slot.startTime || !slot.endTime) {
-      throw new ApiError("Each slot must have date, startTime, endTime", 400);
-    }
-
-    if (slot.startTime >= slot.endTime) {
-      throw new ApiError("startTime must be less than endTime", 400);
-    }
+    validateSlot(slot, "Availability");
   }
 
   const createdAvailability = await doctorRepo.createDoctorAvailability(
@@ -58,6 +55,7 @@ exports.createDoctorAvailability = async (userId, availabilityData) => {
 
 exports.updateDoctorAvailability = async (userId, availabilityData) => {
   const existingDoctor = await doctorRepo.getDoctorByUserId(userId);
+
   if (!existingDoctor) {
     throw new ApiError("Doctor not found", 404);
   }
@@ -66,8 +64,8 @@ exports.updateDoctorAvailability = async (userId, availabilityData) => {
     throw new ApiError("Availability data must be a non-empty array", 400);
   }
 
-  // check slots exist and belong to doctor
   const slotIds = availabilityData.map((slot) => slot.id);
+
   const existingSlots = await doctorRepo.checkSlotsByIds(
     existingDoctor.id,
     slotIds,
@@ -80,5 +78,12 @@ exports.updateDoctorAvailability = async (userId, availabilityData) => {
     );
   }
 
-  return await doctorRepo.updateDoctorAvailability(existingDoctor.id, availabilityData);
+  for (const slot of availabilityData) {
+    validateSlot(slot, "Availability");
+  }
+
+  return await doctorRepo.updateAvailabilityAndHandleAppointments(
+    existingDoctor.id,
+    availabilityData,
+  );
 };

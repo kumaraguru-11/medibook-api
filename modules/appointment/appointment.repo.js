@@ -46,7 +46,7 @@ exports.getAppointments = async (filters) => {
   FROM appointments a 
   INNER JOIN doctors d ON d.id = a.doctor_id
   INNER JOIN users u ON u.id = a.user_id
-  INNER JOIN patient_details pd ON pd.appointment_id = a.id
+  LEFT JOIN patient_details pd ON pd.appointment_id = a.id
   WHERE 1 = 1
   `;
 
@@ -119,4 +119,40 @@ exports.cancelAppointment = async (appointmentId) => {
   const { rows } = await pool.query(query, values);
 
   return rows[0];
+};
+
+exports.getAffectedAppointments = async (doctorId, block) => {
+  const query = `
+    SELECT *
+    FROM appointments
+    WHERE doctor_id = $1
+      AND appointment_date = $2
+      AND status = 'SCHEDULED'
+      AND start_time < $4
+      AND end_time > $3
+  `;
+
+  const values = [doctorId, block.date, block.start_time, block.end_time];
+
+  const { rows } = await pool.query(query, values);
+
+  return rows;
+};
+
+
+exports.markAppointmentsForReschedule = async (appointmentIds) => {
+  if (!appointmentIds.length) return [];
+
+  const query = `
+    UPDATE appointments
+    SET
+      status = 'RESCHEDULE_REQUIRED',
+      priority = true
+    WHERE id = ANY($1::int[])
+    RETURNING *;
+  `;
+
+  const { rows } = await pool.query(query, [appointmentIds]);
+
+  return rows;
 };

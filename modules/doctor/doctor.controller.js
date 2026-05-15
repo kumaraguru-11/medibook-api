@@ -36,6 +36,11 @@ exports.createDoctorAvailability = async (req, res, next) => {
         ),
       );
   } catch (e) {
+    if (e.code === "23P01") {
+      return next(
+        new ApiError("Availability slots overlap with existing slots", 409),
+      );
+    }
     next(e);
   }
 };
@@ -57,6 +62,11 @@ exports.updateDoctorAvailability = async (req, res, next) => {
         )
       );
   } catch (e) {
+    if (e.code === "23P01") {
+      return next(
+        new ApiError("Availability slots overlap with existing slots", 409),
+      );
+    }
     next(e);
   }
 };

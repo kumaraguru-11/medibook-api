@@ -1,4 +1,5 @@
 const pool = require("../../config/db");
+const appointmentRepo = require("../appointment/appointment.repo");
 
 exports.getDoctorByUserId = async (userId) => {
   const query = `SELECT * FROM doctors where user_id = $1`;
@@ -89,7 +90,6 @@ exports.checkAvailabilityExists = async (availability) => {
   AND date = $2
   AND start_time <= $3
   AND end_time >= $4
-  AND status = 'AVAILABLE'
   LIMIT 1;
   `;
 
@@ -210,4 +210,175 @@ exports.updateDoctorAvailability = async (doctorId, availabilityData) => {
   } finally {
     client.release();
   }
+};
+
+exports.updateAvailabilityAndHandleAppointments = async (
+  doctorId,
+  existingSlots,
+  newSlots,
+) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    //create blocks of old slots
+    const blocks = existingSlots.map((slot) => ({
+      date: slot.date,
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+    }));
+
+    const createdBlocks = [];
+
+    for (const block of blocks) {
+      const query = `
+       INSERT INTO doctor_blocks
+       (doctor_id,date,start_time,end_time)
+       VALUES($1,$2,$3,$4)
+       RETURNED *;
+       `;
+
+      const { rows } = await client.query(blockQuery, [
+        doctorId,
+        block.date,
+        block.start_time,
+        block.end_time,
+      ]);
+
+      createdBlocks.push(rows[0]);
+    }
+
+    //find affected appointments
+    const affectedappointmentIds = [];
+
+    for (const block of createdBlocks) {
+      const appointments = await appointmentRepo.getAffectedAppointments(
+        doctorId,
+        block,
+      );
+
+      affectedAppointmentIds.push(...appointments.map((a) => a.id));
+    }
+
+    //mark appontments
+    if (affectedappointmentIds.length > 0) {
+      await appointmentRepo.markAppointmentsForReschedule(
+        affectedAppointmentIds,
+      );
+    }
+
+    //update availiablity
+    const values = [];
+    const placeholders = [];
+
+    let index = 1;
+
+    for (const slot of newSlots) {
+      placeholders.push(`($${index++}, $${index++}, $${index++}, $${index++})`);
+
+      values.push(slot.id, slot.date, slot.startTime, slot.endTime);
+    }
+
+    values.push(Number(doctorId));
+
+    const updateAvailiabilityQuery = `
+     UPDATE availability AS a
+     SET 
+      date = v.date::date,
+      start_time = v.startTime::time,
+      end_time = v.endTime::time
+      FROM(
+      VALUES ${placeholders.join(", ")}
+      ) AS v (id,date,startTime,endTime)
+       WHERE 
+         a.id = v.id::int
+         AND a.doctor_id = $${index}
+        RETURNING a.*;
+     `;
+
+    const updatedAvailiability = await client.query(
+      updateAvailiabilityQuery,
+      values,
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      updatedAvailability: updatedAvailability.rows,
+      affectedAppointments: affectedAppointmentIds.length,
+    };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    await client.release();
+  }
+};
+
+exports.createDoctorBlocks = async (doctorId, blocks) => {
+  if (!blocks.length) return [];
+
+  const values = [];
+  const placeholders = [];
+
+  let index = 1;
+
+  for (const block of blocks) {
+    placeholders.push(`($${index++}, $${index++}, $${index++}, $${index++})`);
+
+    values.push(doctorId, block.date, block.start_time, block.end_time);
+  }
+
+  const query = `
+    INSERT INTO doctor_blocks
+    (
+      doctor_id,
+      date,
+      start_time,
+      end_time
+    )
+    VALUES ${placeholders.join(", ")}
+    RETURNING *;
+  `;
+
+  const { rows } = await pool.query(query, values);
+
+  return rows;
+};
+
+exports.checkDoctorBlocked = async (availability) => {
+  const query = `
+    SELECT *
+    FROM doctor_blocks
+    WHERE doctor_id = $1
+      AND date = $2
+      AND start_time < $4
+      AND end_time > $3
+    LIMIT 1;
+  `;
+
+  const values = [
+    availability.doctor_id,
+    availability.appointment_date,
+    availability.start_time,
+    availability.end_time,
+  ];
+
+  const { rows } = await pool.query(query, values);
+
+  return rows[0];
+};
+
+exports.deleteAvailabilityByIds = async (client, doctorId, slotIds) => {
+  const query = `
+    DELETE FROM availability
+    WHERE doctor_id = $1
+      AND id = ANY($2::int[])
+    RETURNING *;
+  `;
+
+  const { rows } = await client.query(query, [doctorId, slotIds]);
+
+  return rows;
 };

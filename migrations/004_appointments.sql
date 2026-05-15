@@ -54,6 +54,9 @@ ON appointments(user_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_status
 ON appointments(status);
 
+CREATE INDEX IF NOT EXISTS idx_appointments_reschedule
+ON appointments(doctor_id, appointment_date, status);
+
 ALTER TABLE appointments
 ADD CONSTRAINT no_overlap_appointments
 EXCLUDE USING gist (
