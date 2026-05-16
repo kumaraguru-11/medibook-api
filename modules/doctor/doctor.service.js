@@ -84,6 +84,7 @@ exports.updateDoctorAvailability = async (userId, availabilityData) => {
 
   return await doctorRepo.updateAvailabilityAndHandleAppointments(
     existingDoctor.id,
+    existingSlots,
     availabilityData,
   );
 };

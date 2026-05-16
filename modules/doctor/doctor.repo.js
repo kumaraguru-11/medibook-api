@@ -69,7 +69,7 @@ exports.createDoctorAvailability = async (doctorId, availabilityData) => {
     startTime,
     endTime,
   ]);
-  return rows;
+  return rows[0];
 };
 
 exports.checkSlotsByIds = async (doctorId, slotIds) => {
@@ -232,11 +232,11 @@ exports.updateAvailabilityAndHandleAppointments = async (
     const createdBlocks = [];
 
     for (const block of blocks) {
-      const query = `
+      const blockQuery = `
        INSERT INTO doctor_blocks
        (doctor_id,date,start_time,end_time)
        VALUES($1,$2,$3,$4)
-       RETURNED *;
+       RETURNING *;
        `;
 
       const { rows } = await client.query(blockQuery, [
@@ -258,7 +258,7 @@ exports.updateAvailabilityAndHandleAppointments = async (
         block,
       );
 
-      affectedAppointmentIds.push(...appointments.map((a) => a.id));
+      affectedappointmentIds.push(...appointments.map((a) => a.id));
     }
 
     //mark appontments

@@ -1,4 +1,4 @@
-const { ApiResponse } = require("../../utils/httpsResponse");
+const { ApiResponse, ApiError } = require("../../utils/httpsResponse");
 const doctorService = require("./doctor.service");
 
 exports.updateDoctorProfile = async (req, res, next) => {
@@ -51,15 +51,15 @@ exports.updateDoctorAvailability = async (req, res, next) => {
     const availabilityData = req.body;
     const updatedAvailability = await doctorService.updateDoctorAvailability(
       userId,
-      availabilityData
+      availabilityData,
     );
     res
       .status(200)
       .json(
         new ApiResponse(
           updatedAvailability,
-          "Doctor availability updated successfully!"
-        )
+          "Doctor availability updated successfully!",
+        ),
       );
   } catch (e) {
     if (e.code === "23P01") {

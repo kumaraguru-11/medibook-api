@@ -1,5 +1,8 @@
-const { Pool } = require("pg");
+const { Pool, types } = require("pg");
 const { db } = require("./env");
+
+// Prevent DATE from converting to JS Date object
+types.setTypeParser(1082, (value) => value);
 
 const pool = new Pool(db);
 

@@ -5,7 +5,7 @@ const allowRoles = require("../../middleware/role.middleware");
 
 const router = express.Router();
 
-router.use(authMiddleware, allowRoles(["USER"]));
+router.use(authMiddleware, allowRoles("USER"));
 
 router.post("/create", patientController.createPatientProfile);
 router.get(

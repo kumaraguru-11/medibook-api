@@ -11,13 +11,13 @@ router.post("/", allowRoles("USER"), appointmentController.createAppointment);
 
 router.get(
   "/",
-  allowRoles(["USER", "DOCTOR"]),
+  allowRoles("USER", "DOCTOR"),
   appointmentController.getAppointment,
 );
 
 router.patch(
   "/:id/cancel",
-  allowRoles(["USER"]),
+  allowRoles("USER"),
   appointmentController.cancelAppointment,
 );
 

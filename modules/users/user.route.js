@@ -8,6 +8,6 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.get("/me", userController.getUserById);
-router.patch("/me", allowRoles(["USER"]), userController.updateUser);
+router.patch("/me", userController.updateUser);
 
 module.exports = router;
