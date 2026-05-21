@@ -222,97 +222,118 @@ exports.updateAvailabilityAndHandleAppointments = async (
   try {
     await client.query("BEGIN");
 
-    //create blocks of old slots
-    const blocks = existingSlots.map((slot) => ({
+    // Create doctor blocks from old availability slots
+    const blocks = existingSlots.map((slot, index) => ({
       date: slot.date,
       start_time: slot.start_time,
       end_time: slot.end_time,
+      reason: newSlots[index]?.reason?.trim() || "Doctor unavailable",
     }));
 
     const createdBlocks = [];
 
     for (const block of blocks) {
       const blockQuery = `
-       INSERT INTO doctor_blocks
-       (doctor_id,date,start_time,end_time)
-       VALUES($1,$2,$3,$4)
-       RETURNING *;
-       `;
+        INSERT INTO doctor_blocks
+        (
+          doctor_id,
+          date,
+          start_time,
+          end_time,
+          reason
+        )
+        VALUES ($1, $2, $3, $4,$5)
+        RETURNING *;
+      `;
 
       const { rows } = await client.query(blockQuery, [
         doctorId,
         block.date,
         block.start_time,
         block.end_time,
+        block.reason,
       ]);
 
       createdBlocks.push(rows[0]);
     }
 
-    //find affected appointments
-    const affectedappointmentIds = [];
+    // Find affected appointments
+    const affectedAppointmentIds = [];
 
     for (const block of createdBlocks) {
       const appointments = await appointmentRepo.getAffectedAppointments(
+        // client,
         doctorId,
         block,
       );
 
-      affectedappointmentIds.push(...appointments.map((a) => a.id));
-    }
-
-    //mark appontments
-    if (affectedappointmentIds.length > 0) {
-      await appointmentRepo.markAppointmentsForReschedule(
-        affectedAppointmentIds,
+      affectedAppointmentIds.push(
+        ...appointments.map((appointment) => appointment.id),
       );
     }
 
-    //update availiablity
-    const values = [];
-    const placeholders = [];
+    // Remove duplicate appointment ids
+    const uniqueAppointmentIds = [...new Set(affectedAppointmentIds)];
 
-    let index = 1;
-
-    for (const slot of newSlots) {
-      placeholders.push(`($${index++}, $${index++}, $${index++}, $${index++})`);
-
-      values.push(slot.id, slot.date, slot.startTime, slot.endTime);
+    // Mark appointments for reschedule
+    if (uniqueAppointmentIds.length > 0) {
+      await appointmentRepo.markAppointmentsForReschedule(
+        // client,
+        uniqueAppointmentIds,
+      );
     }
 
-    values.push(Number(doctorId));
+    // Delete old availability slots
+    const slotIds = existingSlots.map((slot) => slot.id);
 
-    const updateAvailiabilityQuery = `
-     UPDATE availability AS a
-     SET 
-      date = v.date::date,
-      start_time = v.startTime::time,
-      end_time = v.endTime::time
-      FROM(
-      VALUES ${placeholders.join(", ")}
-      ) AS v (id,date,startTime,endTime)
-       WHERE 
-         a.id = v.id::int
-         AND a.doctor_id = $${index}
-        RETURNING a.*;
-     `;
+    await client.query(
+      `
+      DELETE FROM availability
+      WHERE doctor_id = $1
+        AND id = ANY($2::int[])
+      `,
+      [doctorId, slotIds],
+    );
 
-    const updatedAvailiability = await client.query(
-      updateAvailiabilityQuery,
-      values,
+    // Insert new availability slots
+    const dates = newSlots.map((slot) => slot.date);
+
+    const startTimes = newSlots.map((slot) => slot.startTime);
+
+    const endTimes = newSlots.map((slot) => slot.endTime);
+
+    const insertAvailabilityQuery = `
+      INSERT INTO availability
+      (
+        doctor_id,
+        date,
+        start_time,
+        end_time
+      )
+      SELECT
+        $1,
+        unnest($2::date[]),
+        unnest($3::time[]),
+        unnest($4::time[])
+      RETURNING *;
+    `;
+
+    const { rows: updatedAvailability } = await client.query(
+      insertAvailabilityQuery,
+      [doctorId, dates, startTimes, endTimes],
     );
 
     await client.query("COMMIT");
 
     return {
-      updatedAvailability: updatedAvailability.rows,
-      affectedAppointments: affectedAppointmentIds.length,
+      updatedAvailability,
+      affectedAppointments: uniqueAppointmentIds.length,
     };
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
   } finally {
-    await client.release();
+    client.release();
   }
 };
 
@@ -336,9 +357,18 @@ exports.createDoctorBlocks = async (doctorId, blocks) => {
       doctor_id,
       date,
       start_time,
+      end_time,
+      reason
+    )
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT
+    (
+      doctor_id,
+      date,
+      start_time,
       end_time
     )
-    VALUES ${placeholders.join(", ")}
+    DO NOTHING
     RETURNING *;
   `;
 
@@ -381,4 +411,198 @@ exports.deleteAvailabilityByIds = async (client, doctorId, slotIds) => {
   const { rows } = await client.query(query, [doctorId, slotIds]);
 
   return rows;
+};
+
+// ============================
+// repo
+// ============================
+
+exports.getAvailiability = async (filters) => {
+  let query = `
+    SELECT
+      a.id,
+      a.doctor_id,
+      a.date,
+      a.start_time,
+      a.end_time,
+      a.created_at,
+
+      d.specialty,
+      d.experience,
+      d.description,
+      d.verification_status,
+
+      u.name AS doctor_name,
+      u.email,
+
+      ap.id AS appointment_id,
+      ap.start_time AS appointment_start_time,
+      ap.end_time AS appointment_end_time,
+      ap.status AS appointment_status
+
+    FROM availability a
+
+    INNER JOIN doctors d
+      ON d.id = a.doctor_id
+
+    INNER JOIN users u
+      ON u.id = d.user_id
+
+    LEFT JOIN appointments ap
+      ON ap.doctor_id = a.doctor_id
+      AND ap.appointment_date = a.date
+      AND ap.status IN ('SCHEDULED', 'COMPLETED')
+      AND ap.start_time < a.end_time
+      AND ap.end_time > a.start_time
+
+    WHERE 1 = 1
+  `;
+
+  const values = [];
+
+  let index = 1;
+
+  // filter by doctor
+  if (filters.doctorId) {
+    query += `
+      AND a.doctor_id = $${index}
+    `;
+
+    values.push(filters.doctorId);
+
+    index++;
+  }
+
+  // filter by specialty
+  if (filters.specialty) {
+    query += `
+      AND LOWER(d.specialty) LIKE LOWER($${index})
+    `;
+
+    values.push(`%${filters.specialty}%`);
+
+    index++;
+  }
+
+  // start date
+  if (filters.startDate) {
+    query += `
+      AND a.date >= $${index}
+    `;
+
+    values.push(filters.startDate);
+
+    index++;
+  }
+
+  // end date
+  if (filters.endDate) {
+    query += `
+      AND a.date <= $${index}
+    `;
+
+    values.push(filters.endDate);
+
+    index++;
+  }
+
+  // default current date onwards
+  if (!filters.startDate && !filters.endDate) {
+    query += `
+      AND a.date >= CURRENT_DATE
+    `;
+  }
+
+  query += `
+    ORDER BY
+      a.date ASC,
+      a.start_time ASC
+  `;
+
+  // pagination
+  const limit = Number(filters.limit) || 10;
+
+  const page = Number(filters.page) || 1;
+
+  const offset = (page - 1) * limit;
+
+  query += `
+    LIMIT $${index}
+    OFFSET $${index + 1}
+  `;
+
+  values.push(limit, offset);
+
+  const { rows } = await pool.query(query, values);
+
+  // =====================================
+  // Convert into frontend friendly slots
+  // =====================================
+
+  const groupedData = {};
+
+  for (const row of rows) {
+    const key = `${row.doctor_id}_${row.date}`;
+
+    if (!groupedData[key]) {
+      groupedData[key] = {
+        doctor_id: row.doctor_id,
+        doctor_name: row.doctor_name,
+        email: row.email,
+
+        specialty: row.specialty,
+        experience: row.experience,
+        description: row.description,
+        verification_status: row.verification_status,
+
+        date: row.date,
+
+        slots: [],
+      };
+    }
+
+    // generate 30 min slots
+    let currentTime = row.start_time;
+
+    while (currentTime < row.end_time) {
+      const start = currentTime;
+
+      const startDate = new Date(
+        `1970-01-01T${start}`,
+      );
+
+      const endDate = new Date(
+        startDate.getTime() + 30 * 60000,
+      );
+
+      const end = endDate.toTimeString().slice(0, 5);
+
+      // check booked
+      let isBooked = false;
+
+      if (
+        row.appointment_start_time &&
+        row.appointment_end_time
+      ) {
+        isBooked =
+          start >= row.appointment_start_time &&
+          end <= row.appointment_end_time;
+      }
+
+      groupedData[key].slots.push({
+        start_time: start.slice(0, 5),
+        end_time: end,
+        is_booked: isBooked,
+      });
+
+      currentTime = end;
+    }
+  }
+
+  return {
+    total: rows.length,
+    page,
+    limit,
+    data: Object.values(groupedData),
+  };
 };

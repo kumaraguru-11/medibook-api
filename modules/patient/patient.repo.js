@@ -9,7 +9,7 @@ exports.createPatientProfile = async (patientData) => {
  `;
 
   const values = [
-    patientData.appointment_id,
+    patientData.appointmentId,
     patientData.name,
     patientData.age,
     patientData.gender,
@@ -40,7 +40,7 @@ exports.updatePatientProfile = async (patientData) => {
     }
   }
 
-  values.push(patientData.appointment_id);
+  values.push(patientData.appointmentId);
 
    const query = `
     UPDATE patient_details

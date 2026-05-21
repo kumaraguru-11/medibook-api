@@ -24,6 +24,15 @@ CREATE INDEX IF NOT EXISTS idx_blocks_doctor_date
 ON doctor_blocks(doctor_id, date);
 
 ALTER TABLE doctor_blocks
+ADD CONSTRAINT unique_doctor_block
+UNIQUE (
+  doctor_id,
+  date,
+  start_time,
+  end_time
+);
+
+ALTER TABLE doctor_blocks
 ADD CONSTRAINT no_overlap_doctor_blocks
 EXCLUDE USING GIST(
     doctor_Id with =,

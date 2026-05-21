@@ -71,6 +71,30 @@ exports.updateDoctorAvailability = async (req, res, next) => {
   }
 };
 
+exports.getAvailiability = async (req, res, next) => {
+  try {
+    const filters = {
+      doctorId: req.query.doctorId,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      specialty: req.query.specialty,
+      page: req.query.page || 1,
+      limit: req.query.limit || 10,
+      userId: req.user.id,
+    };
+    // By default showing current date data with pagination
+    const availiability = await doctorService.getAvailiability(filters);
+
+    res
+      .status(200)
+      .json(
+        new ApiResponse(availiability, "Availability fetched successfully"),
+      );
+  } catch (e) {
+    next(e);
+  }
+};
+
 /**
  * Select Date: [ 2026-05-06 📅 ]
 

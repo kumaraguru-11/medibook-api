@@ -53,16 +53,16 @@ exports.getAppointments = async (filters) => {
   const values = [];
   let index = 1;
 
-  if (filters.user_id) {
+  if (filters.userId) {
     query += `AND a.user_id = $${index}`;
-    values.push(filters.user_id);
+    values.push(filters.userId);
     index++;
   }
 
   // Filter by doctor_id
-  if (filters.doctor_id) {
+  if (filters.doctorId) {
     query += ` AND a.doctor_id = $${index}`;
-    values.push(filters.doctor_id);
+    values.push(filters.doctorId);
     index++;
   }
 
@@ -74,9 +74,9 @@ exports.getAppointments = async (filters) => {
   }
 
   // Filter by appointment date
-  if (filters.appointment_date) {
+  if (filters.appointmentDate) {
     query += ` AND a.appointment_date = $${index}`;
-    values.push(filters.appointment_date);
+    values.push(filters.appointmentDate);
     index++;
   }
 

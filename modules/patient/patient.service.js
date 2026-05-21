@@ -6,7 +6,7 @@ exports.createPatientProfile = async (patientData) => {
     throw new ApiError("No fields provided to create patient profile", 400);
   }
 
-  if (patientData?.appointment_id === undefined) {
+  if (patientData?.appointmentId === undefined) {
     throw new ApiError(
       "appointment_id is required to create patient profile",
       400,
@@ -32,7 +32,7 @@ exports.updatePatientProfile = async (patientData) => {
     throw new ApiError("No fields provided to update patient profile", 400);
   }
 
-  if (patientData?.appointment_id === undefined) {
+  if (patientData?.appointmentId === undefined) {
     throw new ApiError(
       "appointment_id is required to update patient profile",
       400,

@@ -88,3 +88,9 @@ exports.updateDoctorAvailability = async (userId, availabilityData) => {
     availabilityData,
   );
 };
+
+exports.getAvailiability = async (filters) => {
+  const availability = await doctorRepo.getAvailiability(filters);
+
+  return availability;
+};

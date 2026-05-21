@@ -1,4 +1,4 @@
-const { ApiResponse } = require("../../utils/httpsResponse");
+const { ApiResponse,ApiError } = require("../../utils/httpsResponse");
 const appointmentService = require("./appointment.service");
 
 exports.createAppointment = async (req, res, next) => {
@@ -26,10 +26,10 @@ exports.createAppointment = async (req, res, next) => {
 exports.getAppointment = async (req, res, next) => {
   try {
     const filters = {
-      user_id: req.query.userId,
-      doctor_id: req.query.doctorId,
+      userId: req.query.userId,
+      doctorId: req.query.doctorId,
       status: req.query.status,
-      appointment_date: req.query.date,
+      appointmentDate: req.query.date,
     };
 
     const appointments = await appointmentService.getAppointments(filters);
