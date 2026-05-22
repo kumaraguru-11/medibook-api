@@ -8,6 +8,7 @@ const userRoutes = require("./modules/users/user.route");
 const doctorRoutes = require("./modules/doctor/doctor.route");
 const patientRoutes = require("./modules/patient/patient.route");
 const appointmentRoutes = require("./modules/appointment/appointment.route");
+const notificationRoutes = require("./modules/notification/notification.route");
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/doctor", doctorRoutes);
 app.use("/api/patient", patientRoutes);
 app.use("/api/appointment", appointmentRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use(errorHandler);
 

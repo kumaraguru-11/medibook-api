@@ -23,3 +23,25 @@ exports.updateUser = async (req, res, next) => {
     next(e);
   }
 };
+
+exports.getUserAvailability = async (req, res, next) => {
+  try {
+    const filters = {
+      doctorId: req.query.doctorId,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      specialty: req.query.specialty,
+      page: req.query.page || 1,
+      limit: req.query.limit || 10,
+      userId: req.user.id,
+    };
+
+    const availability = await userService.getUserAvailability(filters);
+
+    res
+      .status(200)
+      .json(new ApiResponse(availability, "Availability fetched successfully"));
+  } catch (e) {
+    next(e);
+  }
+};

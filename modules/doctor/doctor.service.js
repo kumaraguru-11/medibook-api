@@ -1,4 +1,7 @@
 const { ApiError } = require("../../utils/httpsResponse");
+const {
+  formatAvailabilityResponse,
+} = require("../../utils/availabilityFormatter");
 
 const doctorRepo = require("./doctor.repo");
 
@@ -89,8 +92,37 @@ exports.updateDoctorAvailability = async (userId, availabilityData) => {
   );
 };
 
-exports.getAvailiability = async (filters) => {
-  const availability = await doctorRepo.getAvailiability(filters);
+exports.getDoctorAvailability = async (filters) => {
+  filters.hidePast = false;
 
-  return availability;
+  const rows = await doctorRepo.getAvailability(filters);
+
+  return formatAvailabilityResponse(rows, filters.userId);
+};
+
+exports.deleteDoctorAvailability = async (userId, availabilityIds, reason) => {
+  const existingDoctor = await doctorRepo.getDoctorByUserId(userId);
+
+  if (!existingDoctor) {
+    throw new ApiError("Doctor not found", 404);
+  }
+
+  if (!Array.isArray(availabilityIds) || availabilityIds.length === 0) {
+    throw new ApiError("availabilityIds must be a non-empty array", 400);
+  }
+
+  const existingSlots = await doctorRepo.checkSlotsByIds(
+    existingDoctor.id,
+    availabilityIds,
+  );
+
+  if (existingSlots.length !== availabilityIds.length) {
+    throw new ApiError("One or more availability slots not found", 404);
+  }
+
+  return await doctorRepo.deleteAvailabilityAndHandleAppointments(
+    existingDoctor.id,
+    existingSlots,
+    reason,
+  );
 };

@@ -5,11 +5,12 @@ const doctorController = require("./doctor.controller");
 
 const router = express.Router();
 
-router.use(authMiddleware, allowRoles("DOCTOR","USER"));
+router.use(authMiddleware, allowRoles("DOCTOR"));
 
 router.patch("/me", doctorController.updateDoctorProfile);
 router.post("/availability", doctorController.createDoctorAvailability);
 router.patch("/availability", doctorController.updateDoctorAvailability);
-router.get("/availiability",doctorController.getAvailiability);
+router.get("/availability", doctorController.getDoctorAvailability);
+router.delete("/availability", doctorController.deleteDoctorAvailability);
 
 module.exports = router;

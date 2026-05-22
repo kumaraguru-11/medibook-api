@@ -72,6 +72,7 @@ exports.createDoctorAvailability = async (doctorId, availabilityData) => {
   return rows[0];
 };
 
+//check previous availiability(for update availiability) 
 exports.checkSlotsByIds = async (doctorId, slotIds) => {
   const query = `
   SELECT * FROM availability
@@ -82,6 +83,7 @@ exports.checkSlotsByIds = async (doctorId, slotIds) => {
   return rows;
 };
 
+//check availiability using date and time (for appointment booking)
 exports.checkAvailabilityExists = async (availability) => {
   const query = `
   SELECT *
@@ -157,60 +159,60 @@ exports.checkAvailabilityExists = async (availability) => {
 //   }
 // };
 
-exports.updateDoctorAvailability = async (doctorId, availabilityData) => {
-  const client = await pool.connect();
+// exports.updateDoctorAvailability = async (doctorId, availabilityData) => {
+//   const client = await pool.connect();
 
-  try {
-    await client.query("BEGIN");
+//   try {
+//     await client.query("BEGIN");
 
-    const values = [];
-    const placeholders = [];
+//     const values = [];
+//     const placeholders = [];
 
-    let index = 1;
+//     let index = 1;
 
-    for (const slot of availabilityData) {
-      placeholders.push(`($${index++}, $${index++}, $${index++}, $${index++})`);
+//     for (const slot of availabilityData) {
+//       placeholders.push(`($${index++}, $${index++}, $${index++}, $${index++})`);
 
-      values.push(slot.id, slot.date, slot.startTime, slot.endTime);
-    }
+//       values.push(slot.id, slot.date, slot.startTime, slot.endTime);
+//     }
 
-    values.push(Number(doctorId));
+//     values.push(Number(doctorId));
 
-    const query = `
-      UPDATE availability AS a
-      SET
-        date = v.date::date,
-        start_time = v.startTime::time,
-        end_time = v.endTime::time
-      FROM (
-        VALUES
-          ${placeholders.join(", ")}
-      ) AS v(id, date, startTime, endTime)   -- Create temporary table in query level
-      WHERE
-        a.id = v.id::int
-        AND a.doctor_id = $${index}
-        AND (
-          a.date IS DISTINCT FROM v.date::date
-          OR a.start_time IS DISTINCT FROM v.startTime::time
-          OR a.end_time IS DISTINCT FROM v.endTime::time
-        )
-      RETURNING a.*;
-    `;
+//     const query = `
+//       UPDATE availability AS a
+//       SET
+//         date = v.date::date,
+//         start_time = v.startTime::time,
+//         end_time = v.endTime::time
+//       FROM (
+//         VALUES
+//           ${placeholders.join(", ")}
+//       ) AS v(id, date, startTime, endTime)   -- Create temporary table in query level
+//       WHERE
+//         a.id = v.id::int
+//         AND a.doctor_id = $${index}
+//         AND (
+//           a.date IS DISTINCT FROM v.date::date
+//           OR a.start_time IS DISTINCT FROM v.startTime::time
+//           OR a.end_time IS DISTINCT FROM v.endTime::time
+//         )
+//       RETURNING a.*;
+//     `;
 
-    const { rows } = await client.query(query, values);
-    // console.log("Query:", query);
-    // console.log("Values:", values);
+//     const { rows } = await client.query(query, values);
+//     // console.log("Query:", query);
+//     // console.log("Values:", values);
 
-    await client.query("COMMIT");
+//     await client.query("COMMIT");
 
-    return rows;
-  } catch (e) {
-    await client.query("ROLLBACK");
-    throw e;
-  } finally {
-    client.release();
-  }
-};
+//     return rows;
+//   } catch (e) {
+//     await client.query("ROLLBACK");
+//     throw e;
+//   } finally {
+//     client.release();
+//   }
+// };
 
 exports.updateAvailabilityAndHandleAppointments = async (
   doctorId,
@@ -337,46 +339,6 @@ exports.updateAvailabilityAndHandleAppointments = async (
   }
 };
 
-exports.createDoctorBlocks = async (doctorId, blocks) => {
-  if (!blocks.length) return [];
-
-  const values = [];
-  const placeholders = [];
-
-  let index = 1;
-
-  for (const block of blocks) {
-    placeholders.push(`($${index++}, $${index++}, $${index++}, $${index++})`);
-
-    values.push(doctorId, block.date, block.start_time, block.end_time);
-  }
-
-  const query = `
-    INSERT INTO doctor_blocks
-    (
-      doctor_id,
-      date,
-      start_time,
-      end_time,
-      reason
-    )
-    VALUES ($1, $2, $3, $4, $5)
-    ON CONFLICT
-    (
-      doctor_id,
-      date,
-      start_time,
-      end_time
-    )
-    DO NOTHING
-    RETURNING *;
-  `;
-
-  const { rows } = await pool.query(query, values);
-
-  return rows;
-};
-
 exports.checkDoctorBlocked = async (availability) => {
   const query = `
     SELECT *
@@ -400,24 +362,7 @@ exports.checkDoctorBlocked = async (availability) => {
   return rows[0];
 };
 
-exports.deleteAvailabilityByIds = async (client, doctorId, slotIds) => {
-  const query = `
-    DELETE FROM availability
-    WHERE doctor_id = $1
-      AND id = ANY($2::int[])
-    RETURNING *;
-  `;
-
-  const { rows } = await client.query(query, [doctorId, slotIds]);
-
-  return rows;
-};
-
-// ============================
-// repo
-// ============================
-
-exports.getAvailiability = async (filters) => {
+exports.getAvailability = async (filters) => {
   let query = `
     SELECT
       a.id,
@@ -425,20 +370,23 @@ exports.getAvailiability = async (filters) => {
       a.date,
       a.start_time,
       a.end_time,
-      a.created_at,
 
       d.specialty,
-      d.experience,
-      d.description,
-      d.verification_status,
 
       u.name AS doctor_name,
-      u.email,
 
-      ap.id AS appointment_id,
-      ap.start_time AS appointment_start_time,
-      ap.end_time AS appointment_end_time,
-      ap.status AS appointment_status
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id', ap.id,
+            'user_id', ap.user_id,
+            'start_time', ap.start_time,
+            'end_time', ap.end_time,
+            'status', ap.status
+          )
+        ) FILTER (WHERE ap.id IS NOT NULL),
+        '[]'
+      ) AS appointments
 
     FROM availability a
 
@@ -452,157 +400,188 @@ exports.getAvailiability = async (filters) => {
       ON ap.doctor_id = a.doctor_id
       AND ap.appointment_date = a.date
       AND ap.status IN ('SCHEDULED', 'COMPLETED')
-      AND ap.start_time < a.end_time
-      AND ap.end_time > a.start_time
+      AND ap.start_time >= a.start_time
+      AND ap.end_time <= a.end_time
 
     WHERE 1 = 1
   `;
 
   const values = [];
-
   let index = 1;
 
-  // filter by doctor
+  // doctor specific screen
   if (filters.doctorId) {
-    query += `
-      AND a.doctor_id = $${index}
-    `;
-
+    query += ` AND a.doctor_id = $${index}`;
     values.push(filters.doctorId);
-
     index++;
+  } else {
+    // user screen
+    query += ` AND a.date >= CURRENT_DATE`;
   }
 
-  // filter by specialty
+  // specialty filter
   if (filters.specialty) {
-    query += `
-      AND LOWER(d.specialty) LIKE LOWER($${index})
-    `;
-
+    query += ` AND d.specialty ILIKE $${index}`;
     values.push(`%${filters.specialty}%`);
-
     index++;
   }
 
   // start date
   if (filters.startDate) {
-    query += `
-      AND a.date >= $${index}
-    `;
-
+    query += ` AND a.date >= $${index}`;
     values.push(filters.startDate);
-
     index++;
   }
 
   // end date
   if (filters.endDate) {
-    query += `
-      AND a.date <= $${index}
-    `;
-
+    query += ` AND a.date <= $${index}`;
     values.push(filters.endDate);
-
     index++;
   }
 
-  // default current date onwards
-  if (!filters.startDate && !filters.endDate) {
-    query += `
-      AND a.date >= CURRENT_DATE
-    `;
+  // hide past data
+  if (filters.hidePast) {
+    query += ` AND a.date >= CURRENT_DATE`;
   }
 
   query += `
+    GROUP BY
+      a.id,
+      d.id,
+      u.id
+
     ORDER BY
       a.date ASC,
       a.start_time ASC
   `;
 
   // pagination
-  const limit = Number(filters.limit) || 10;
-
-  const page = Number(filters.page) || 1;
+  const page = Number(filters.page || 1);
+  const limit = Number(filters.limit || 10);
 
   const offset = (page - 1) * limit;
 
-  query += `
-    LIMIT $${index}
-    OFFSET $${index + 1}
-  `;
+  query += ` LIMIT $${index} OFFSET $${index + 1}`;
 
   values.push(limit, offset);
 
   const { rows } = await pool.query(query, values);
 
-  // =====================================
-  // Convert into frontend friendly slots
-  // =====================================
+  return rows;
+};
 
-  const groupedData = {};
+exports.deleteAvailabilityAndHandleAppointments = async (
+  doctorId,
+  existingSlots,
+  reason = "Doctor unavailable",
+) => {
+  const client = await pool.connect();
 
-  for (const row of rows) {
-    const key = `${row.doctor_id}_${row.date}`;
+  try {
+    await client.query("BEGIN");
 
-    if (!groupedData[key]) {
-      groupedData[key] = {
-        doctor_id: row.doctor_id,
-        doctor_name: row.doctor_name,
-        email: row.email,
+    // Create doctor blocks
+    const blockValues = [];
+    const blockPlaceholders = [];
 
-        specialty: row.specialty,
-        experience: row.experience,
-        description: row.description,
-        verification_status: row.verification_status,
+    let index = 1;
 
-        date: row.date,
-
-        slots: [],
-      };
-    }
-
-    // generate 30 min slots
-    let currentTime = row.start_time;
-
-    while (currentTime < row.end_time) {
-      const start = currentTime;
-
-      const startDate = new Date(
-        `1970-01-01T${start}`,
+    for (const slot of existingSlots) {
+      blockPlaceholders.push(
+        `($${index++}, $${index++}, $${index++}, $${index++}, $${index++})`,
       );
 
-      const endDate = new Date(
-        startDate.getTime() + 30 * 60000,
+      blockValues.push(
+        doctorId,
+        slot.date,
+        slot.start_time,
+        slot.end_time,
+        reason,
       );
-
-      const end = endDate.toTimeString().slice(0, 5);
-
-      // check booked
-      let isBooked = false;
-
-      if (
-        row.appointment_start_time &&
-        row.appointment_end_time
-      ) {
-        isBooked =
-          start >= row.appointment_start_time &&
-          end <= row.appointment_end_time;
-      }
-
-      groupedData[key].slots.push({
-        start_time: start.slice(0, 5),
-        end_time: end,
-        is_booked: isBooked,
-      });
-
-      currentTime = end;
     }
+
+    const blockQuery = `
+      INSERT INTO doctor_blocks
+      (
+        doctor_id,
+        date,
+        start_time,
+        end_time,
+        reason
+      )
+      VALUES ${blockPlaceholders.join(", ")}
+      RETURNING *;
+    `;
+
+    const { rows: createdBlocks } = await client.query(blockQuery, blockValues);
+
+    // Find affected appointments
+    const affectedAppointmentIds = [];
+
+    for (const block of createdBlocks) {
+      const appointmentQuery = `
+        SELECT id
+        FROM appointments
+        WHERE doctor_id = $1
+          AND appointment_date = $2
+          AND status = 'SCHEDULED'
+          AND start_time < $4
+          AND end_time > $3
+      `;
+
+      const { rows } = await client.query(appointmentQuery, [
+        doctorId,
+        block.date,
+        block.start_time,
+        block.end_time,
+      ]);
+
+      affectedAppointmentIds.push(...rows.map((appointment) => appointment.id));
+    }
+
+    // Remove duplicates
+    const uniqueAppointmentIds = [...new Set(affectedAppointmentIds)];
+
+    // Mark appointments
+    if (uniqueAppointmentIds.length > 0) {
+      await client.query(
+        `
+        UPDATE appointments
+        SET
+          status = 'RESCHEDULE_REQUIRED',
+          priority = true
+        WHERE id = ANY($1::int[])
+        `,
+        [uniqueAppointmentIds],
+      );
+    }
+
+    // Delete availability
+    const slotIds = existingSlots.map((slot) => slot.id);
+
+    const deleteQuery = `
+      DELETE FROM availability
+      WHERE doctor_id = $1
+        AND id = ANY($2::int[])
+      RETURNING *;
+    `;
+
+    const { rows: deletedAvailability } = await client.query(deleteQuery, [
+      doctorId,
+      slotIds,
+    ]);
+
+    await client.query("COMMIT");
+
+    return {
+      deletedAvailability,
+      affectedAppointments: uniqueAppointmentIds.length,
+    };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
   }
-
-  return {
-    total: rows.length,
-    page,
-    limit,
-    data: Object.values(groupedData),
-  };
 };

@@ -1,6 +1,7 @@
 const { ApiError } = require("../../utils/httpsResponse");
 const userRepo = require("./user.repo");
 const doctorRepo = require("../doctor/doctor.repo");
+const {formatAvailabilityResponse} = require("../../utils/availabilityFormatter");
 
 exports.getUserById = async (user) => {
   const { id } = user;
@@ -59,4 +60,12 @@ exports.updateUser = async (userId, userData) => {
   delete updatedUser.refresh_token;
 
   return updatedUser;
+};
+
+exports.getUserAvailability = async (filters) => {
+  filters.hidePast = true;
+
+  const rows = await doctorRepo.getAvailability(filters);
+
+  return formatAvailabilityResponse(rows, filters.userId);
 };

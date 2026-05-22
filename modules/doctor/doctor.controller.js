@@ -1,5 +1,6 @@
 const { ApiResponse, ApiError } = require("../../utils/httpsResponse");
 const doctorService = require("./doctor.service");
+const doctorRepo = require("./doctor.repo");
 
 exports.updateDoctorProfile = async (req, res, next) => {
   try {
@@ -71,26 +72,69 @@ exports.updateDoctorAvailability = async (req, res, next) => {
   }
 };
 
-exports.getAvailiability = async (req, res, next) => {
+exports.getDoctorAvailability = async (req, res, next) => {
   try {
+    const doctor = await doctorRepo.getDoctorByUserId(req.user.id);
+
     const filters = {
-      doctorId: req.query.doctorId,
+      doctorId: doctor.id,
       startDate: req.query.startDate,
       endDate: req.query.endDate,
-      specialty: req.query.specialty,
       page: req.query.page || 1,
       limit: req.query.limit || 10,
       userId: req.user.id,
     };
-    // By default showing current date data with pagination
-    const availiability = await doctorService.getAvailiability(filters);
+
+    const availability = await doctorService.getDoctorAvailability(filters);
 
     res
       .status(200)
       .json(
-        new ApiResponse(availiability, "Availability fetched successfully"),
+        new ApiResponse(
+          availability,
+          "Doctor availability fetched successfully",
+        ),
       );
   } catch (e) {
+    next(e);
+  }
+};
+
+exports.deleteDoctorAvailability = async (req, res, next) => {
+  //payload
+  //   {
+  //   "availabilityIds": [6, 7],
+  //   "reason": "Emergency surgery"
+  // }
+  try {
+    const userId = req.user.id;
+
+    const { availabilityIds, reason } = req.body;
+
+    const deletedAvailability = await doctorService.deleteDoctorAvailability(
+      userId,
+      availabilityIds,
+      reason,
+    );
+
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          deletedAvailability,
+          "Doctor availability deleted successfully",
+        ),
+      );
+  } catch (e) {
+    if (e.code === "23P01") {
+      return next(
+        new ApiError(
+          "Availability deletion conflicts with existing blocked slots",
+          409,
+        ),
+      );
+    }
+
     next(e);
   }
 };
