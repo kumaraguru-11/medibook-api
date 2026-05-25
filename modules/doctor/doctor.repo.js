@@ -72,7 +72,7 @@ exports.createDoctorAvailability = async (doctorId, availabilityData) => {
   return rows[0];
 };
 
-//check previous availiability(for update availiability) 
+//check previous availiability(for update availiability)
 exports.checkSlotsByIds = async (doctorId, slotIds) => {
   const query = `
   SELECT * FROM availability
@@ -584,4 +584,125 @@ exports.deleteAvailabilityAndHandleAppointments = async (
   } finally {
     client.release();
   }
+};
+
+exports.getAllDoctors = async (query) => {
+  const {
+    search = "",
+    specialty,
+    minExperience,
+    maxExperience,
+    sortBy = "created_at",
+    sortOrder = "DESC",
+    page = 1,
+    limit = 10,
+  } = query;
+
+  const offset = (page - 1) * limit;
+
+  const values = [];
+  let whereClause = `
+    --WHERE d.verification_status = 'VERIFIED'
+    WHERE 1 = 1
+  `;
+
+  if (search) {
+    values.push(`%${search}%`);
+
+    whereClause += `
+      AND u.name ILIKE $${values.length}
+    `;
+  }
+
+  if (specialty) {
+    values.push(specialty);
+
+    whereClause += `
+      AND d.specialty = $${values.length}
+    `;
+  }
+
+  if (minExperience) {
+    values.push(minExperience);
+
+    whereClause += `
+      AND d.experience >= $${values.length}
+    `;
+  }
+
+  if (maxExperience) {
+    values.push(maxExperience);
+
+    whereClause += `
+      AND d.experience <= $${values.length}
+    `;
+  }
+  const totalQuery = `
+    SELECT COUNT(*) AS total
+    FROM doctors d
+    LEFT JOIN users u
+      ON d.user_id = u.id
+    ${whereClause}
+  `;
+  const totalResult = await pool.query(totalQuery, values);
+  const total = Number(totalResult.rows[0].total);
+  values.push(limit);
+  values.push(offset);
+
+  const doctorsQuery = `
+    SELECT
+      d.id,
+      d.specialty,
+      d.experience,
+      d.description,
+      d.created_at,
+
+      u.name,
+
+      EXISTS (
+        SELECT 1
+        FROM availability da
+        WHERE da.doctor_id = d.id
+          AND da.date = CURRENT_DATE
+      ) AS is_available_today
+
+    FROM doctors d
+
+    LEFT JOIN users u
+      ON d.user_id = u.id
+
+    ${whereClause}
+
+    ORDER BY d.${sortBy} ${sortOrder}
+
+    LIMIT $${values.length - 1}
+    OFFSET $${values.length}
+  `;
+
+  const doctorsResult = await pool.query(doctorsQuery, values);
+
+  return {
+    doctors: doctorsResult.rows,
+
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+exports.getDoctorSpecialties = async () => {
+  const query = `
+    SELECT DISTINCT specialty
+    FROM doctors
+    WHERE verification_status = 'VERIFIED'
+      AND specialty IS NOT NULL
+    ORDER BY specialty ASC
+  `;
+
+  const result = await pool.query(query);
+
+  return result.rows;
 };

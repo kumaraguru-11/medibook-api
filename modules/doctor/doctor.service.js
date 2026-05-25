@@ -126,3 +126,11 @@ exports.deleteDoctorAvailability = async (userId, availabilityIds, reason) => {
     reason,
   );
 };
+
+exports.getAllDoctors = async (query) => {
+  return await doctorRepo.getAllDoctors(query);
+};
+
+exports.getDoctorSpecialties = async () => {
+  return await doctorRepo.getDoctorSpecialties();
+};

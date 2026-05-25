@@ -5,6 +5,21 @@ const doctorController = require("./doctor.controller");
 
 const router = express.Router();
 
+// USER can view doctors
+router.get(
+  "/doctors",
+  authMiddleware,
+  allowRoles("USER"),
+  doctorController.getAllDoctors,
+);
+router.get(
+  "/specialties",
+  authMiddleware,
+  allowRoles("USER"),
+  doctorController.getDoctorSpecialties,
+);
+
+// All routes below only for DOCTOR
 router.use(authMiddleware, allowRoles("DOCTOR"));
 
 router.patch("/me", doctorController.updateDoctorProfile);

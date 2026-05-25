@@ -139,6 +139,29 @@ exports.deleteDoctorAvailability = async (req, res, next) => {
   }
 };
 
+exports.getAllDoctors = async (req, res, next) => {
+  try {
+    const result = await doctorService.getAllDoctors(req.query);
+    res
+      .status(200)
+      .json(new ApiResponse(result, "Doctors fetched successfully!"));
+  } catch (e) {
+    next(e);
+  }
+};
+
+exports.getDoctorSpecialties = async (req, res, next) => {
+  try {
+    const result = await doctorService.getDoctorSpecialties();
+
+    res
+      .status(200)
+      .json(ApiResponse(result, "Specialties fetched successfully!"));
+  } catch (e) {
+    next(e);
+  }
+};
+
 /**
  * Select Date: [ 2026-05-06 📅 ]
 
