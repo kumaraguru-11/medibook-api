@@ -77,6 +77,9 @@ exports.getAppointments = async (filters) => {
     throw new ApiError("Invalid appointment status", 400);
   }
 
+  // auto change the status SCHEDULED -> COMPLETED
+  await appointmentRepo.syncCompletedAppointments();
+
   return await appointmentRepo.getAppointments(filters);
 };
 

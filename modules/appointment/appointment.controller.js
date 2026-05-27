@@ -1,4 +1,4 @@
-const { ApiResponse,ApiError } = require("../../utils/httpsResponse");
+const { ApiResponse, ApiError } = require("../../utils/httpsResponse");
 const appointmentService = require("./appointment.service");
 
 exports.createAppointment = async (req, res, next) => {
@@ -12,7 +12,7 @@ exports.createAppointment = async (req, res, next) => {
     res
       .status(201)
       .json(
-        new ApiResponse("Appointment created successfully", createdAppointment),
+        new ApiResponse(createdAppointment, "Appointment created successfully"),
       );
   } catch (error) {
     // PostgreSQL exclusion constraint violation
@@ -30,13 +30,15 @@ exports.getAppointment = async (req, res, next) => {
       doctorId: req.query.doctorId,
       status: req.query.status,
       appointmentDate: req.query.date,
+      page: Number(req.query.page) || 1,
+      limit: Number(req.query.limit) || 10,
     };
 
     const appointments = await appointmentService.getAppointments(filters);
 
     return res
       .status(200)
-      .json(new ApiResponse("Appointments fetched successfully", appointments));
+      .json(new ApiResponse(appointments, "Appointments fetched successfully"));
   } catch (e) {
     next(e);
   }

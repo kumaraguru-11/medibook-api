@@ -20,75 +20,112 @@ exports.createAppointment = async (userId, appointmentData) => {
 
 exports.getAppointments = async (filters) => {
   let query = `
-  SELECT 
-    a.id,
-    a.doctor_id,
-    a.user_id,
-    a.appointment_date,
-    a.start_time,
-    a.end_time,
-    a.status,
-    a.priority,
-    a.created_at,
+    SELECT 
+      a.id,
+      a.doctor_id,
+      a.user_id,
+      a.appointment_date,
+      a.start_time,
+      a.end_time,
+      a.status,
+      a.priority,
+      a.created_at,
 
-    d.specialty,
-    d.experience,
-    d.description,
-    d.verification_status,
+      d.specialty,
+      d.experience,
+      d.description,
+      d.verification_status,
 
-    u.name AS doctor_name,
-    u.email,
+      u.name AS doctor_name,
+      u.email,
 
-    pd.name AS patient_name,
-    pd.age,
-    pd.gender
+      pd.name AS patient_name,
+      pd.age,
+      pd.gender
 
-  FROM appointments a 
-  INNER JOIN doctors d ON d.id = a.doctor_id
-  INNER JOIN users u ON u.id = a.user_id
-  LEFT JOIN patient_details pd ON pd.appointment_id = a.id
-  WHERE 1 = 1
+    FROM appointments a 
+
+    INNER JOIN doctors d 
+      ON d.id = a.doctor_id
+
+    INNER JOIN users u 
+      ON u.id = a.doctor_id
+
+    LEFT JOIN patient_details pd 
+      ON pd.appointment_id = a.id
+
+    WHERE 1 = 1
+  `;
+
+  let countQuery = `
+    SELECT COUNT(*) 
+    FROM appointments a
+    WHERE 1 = 1
   `;
 
   const values = [];
   let index = 1;
 
+
   if (filters.userId) {
-    query += `AND a.user_id = $${index}`;
+    query += ` AND a.user_id = $${index}`;
+    countQuery += ` AND a.user_id = $${index}`;
     values.push(filters.userId);
     index++;
   }
 
-  // Filter by doctor_id
   if (filters.doctorId) {
     query += ` AND a.doctor_id = $${index}`;
+    countQuery += ` AND a.doctor_id = $${index}`;
     values.push(filters.doctorId);
     index++;
   }
 
-  // Filter by status
   if (filters.status) {
     query += ` AND a.status = $${index}`;
+    countQuery += ` AND a.status = $${index}`;
     values.push(filters.status);
     index++;
   }
 
-  // Filter by appointment date
   if (filters.appointmentDate) {
     query += ` AND a.appointment_date = $${index}`;
+    countQuery += ` AND a.appointment_date = $${index}`;
     values.push(filters.appointmentDate);
     index++;
   }
+
+  const page = filters.page || 1;
+  const limit = filters.limit || 10;
+  const offset = (page - 1) * limit;
 
   query += `
     ORDER BY
       a.appointment_date ASC,
       a.start_time ASC
+
+    LIMIT $${index}
+    OFFSET $${index + 1}
   `;
 
-  const { rows } = await pool.query(query, values);
+  const dataValues = [...values, limit, offset];
 
-  return rows;
+  const [appointmentsResult, countResult] = await Promise.all([
+    pool.query(query, dataValues),
+    pool.query(countQuery, values),
+  ]);
+
+  const total = Number(countResult.rows[0].count);
+
+  return {
+    appointments: appointmentsResult.rows,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 };
 
 exports.getAppointmentById = async (appointmentId) => {
@@ -155,4 +192,21 @@ exports.markAppointmentsForReschedule = async (appointmentIds) => {
   const { rows } = await pool.query(query, [appointmentIds]);
 
   return rows;
+};
+
+exports.syncCompletedAppointments = async () => {
+  const query = `
+      UPDATE appointments
+      SET status = 'COMPLETED'
+      WHERE status = 'SCHEDULED'
+      AND (
+        appointment_date < CURRENT_DATE
+        OR (
+          appointment_date = CURRENT_DATE
+          AND end_time < CURRENT_TIME
+        )
+      )
+    `;
+
+  await pool.query(query);
 };

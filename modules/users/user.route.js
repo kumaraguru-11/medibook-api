@@ -14,7 +14,7 @@ router.patch(
   userController.updateUser,
 );
 router.get(
-  "/availiability",
+  "/availability",
   allowRoles("USER"),
   userController.getUserAvailability,
 );
