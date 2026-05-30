@@ -362,7 +362,186 @@ exports.checkDoctorBlocked = async (availability) => {
   return rows[0];
 };
 
+// exports.getAvailability = async (filters) => {
+//   let query = `
+//     SELECT
+//       a.id,
+//       a.doctor_id,
+//       a.date,
+//       a.start_time,
+//       a.end_time,
+
+//       d.specialty,
+
+//       u.name AS doctor_name,
+
+//       COALESCE(
+//         json_agg(
+//           json_build_object(
+//             'id', ap.id,
+//             'user_id', ap.user_id,
+//             'start_time', ap.start_time,
+//             'end_time', ap.end_time,
+//             'status', ap.status
+//           )
+//         ) FILTER (WHERE ap.id IS NOT NULL),
+//         '[]'
+//       ) AS appointments
+
+//     FROM availability a
+
+//     INNER JOIN doctors d
+//       ON d.id = a.doctor_id
+
+//     INNER JOIN users u
+//       ON u.id = d.user_id
+
+//     LEFT JOIN appointments ap
+//       ON ap.doctor_id = a.doctor_id
+//       AND ap.appointment_date = a.date
+//       AND ap.status IN ('SCHEDULED', 'COMPLETED')
+//       AND ap.start_time >= a.start_time
+//       AND ap.end_time <= a.end_time
+
+//     WHERE 1 = 1
+//   `;
+
+//   const values = [];
+//   let index = 1;
+
+//   // doctor specific screen
+//   if (filters.doctorId) {
+//     query += ` AND a.doctor_id = $${index}`;
+//     values.push(filters.doctorId);
+//     index++;
+//   } else {
+//     // user screen
+//     query += ` AND a.date >= CURRENT_DATE`;
+//   }
+
+//   // specialty filter
+//   if (filters.specialty) {
+//     query += ` AND d.specialty ILIKE $${index}`;
+//     values.push(`%${filters.specialty}%`);
+//     index++;
+//   }
+
+//   // start date
+//   if (filters.startDate) {
+//     query += ` AND a.date >= $${index}`;
+//     values.push(filters.startDate);
+//     index++;
+//   }
+
+//   // end date
+//   if (filters.endDate) {
+//     query += ` AND a.date <= $${index}`;
+//     values.push(filters.endDate);
+//     index++;
+//   }
+
+//   // hide past data
+//   if (filters.hidePast) {
+//     query += ` AND a.date >= CURRENT_DATE`;
+//   }
+
+//   query += `
+//     GROUP BY
+//       a.id,
+//       d.id,
+//       u.id
+
+//     ORDER BY
+//       a.date ASC,
+//       a.start_time ASC
+//   `;
+
+//   // pagination
+//   const page = Number(filters.page || 1);
+//   const limit = Number(filters.limit || 10);
+
+//   const offset = (page - 1) * limit;
+
+//   query += ` LIMIT $${index} OFFSET $${index + 1}`;
+
+//   values.push(limit, offset);
+
+//   const { rows } = await pool.query(query, values);
+
+//   return rows;
+// };
+
 exports.getAvailability = async (filters) => {
+  let whereClause = `
+    WHERE 1 = 1
+  `;
+
+  const values = [];
+  let index = 1;
+
+  // doctor specific screen
+  if (filters.doctorId) {
+    whereClause += ` AND a.doctor_id = $${index}`;
+    values.push(filters.doctorId);
+    index++;
+  } else {
+    whereClause += ` AND a.date >= CURRENT_DATE`;
+  }
+
+  // specialty filter
+  if (filters.specialty) {
+    whereClause += ` AND d.specialty ILIKE $${index}`;
+    values.push(`%${filters.specialty}%`);
+    index++;
+  }
+
+  // start date
+  if (filters.startDate) {
+    whereClause += ` AND a.date >= $${index}`;
+    values.push(filters.startDate);
+    index++;
+  }
+
+  // end date
+  if (filters.endDate) {
+    whereClause += ` AND a.date <= $${index}`;
+    values.push(filters.endDate);
+    index++;
+  }
+
+  // based on availability id
+  if (filters.availabilityId) {
+    whereClause += ` AND a.id <= $${index}`;
+    values.push(filters.availabilityId);
+    index++;
+  }
+
+  // hide past data
+  if (filters.hidePast) {
+    whereClause += ` AND a.date >= CURRENT_DATE`;
+  }
+
+  // ----------------------------------
+  // COUNT QUERY
+  // ----------------------------------
+
+  const countQuery = `
+    SELECT COUNT(*) AS total
+    FROM availability a
+    INNER JOIN doctors d
+      ON d.id = a.doctor_id
+    INNER JOIN users u
+      ON u.id = d.user_id
+    ${whereClause}
+  `;
+
+  const countResult = await pool.query(countQuery, values);
+  const total = Number(countResult.rows[0].total);
+
+  // ----------------------------------
+  // MAIN QUERY
+  // ----------------------------------
+
   let query = `
     SELECT
       a.id,
@@ -403,49 +582,8 @@ exports.getAvailability = async (filters) => {
       AND ap.start_time >= a.start_time
       AND ap.end_time <= a.end_time
 
-    WHERE 1 = 1
-  `;
+    ${whereClause}
 
-  const values = [];
-  let index = 1;
-
-  // doctor specific screen
-  if (filters.doctorId) {
-    query += ` AND a.doctor_id = $${index}`;
-    values.push(filters.doctorId);
-    index++;
-  } else {
-    // user screen
-    query += ` AND a.date >= CURRENT_DATE`;
-  }
-
-  // specialty filter
-  if (filters.specialty) {
-    query += ` AND d.specialty ILIKE $${index}`;
-    values.push(`%${filters.specialty}%`);
-    index++;
-  }
-
-  // start date
-  if (filters.startDate) {
-    query += ` AND a.date >= $${index}`;
-    values.push(filters.startDate);
-    index++;
-  }
-
-  // end date
-  if (filters.endDate) {
-    query += ` AND a.date <= $${index}`;
-    values.push(filters.endDate);
-    index++;
-  }
-
-  // hide past data
-  if (filters.hidePast) {
-    query += ` AND a.date >= CURRENT_DATE`;
-  }
-
-  query += `
     GROUP BY
       a.id,
       d.id,
@@ -456,19 +594,24 @@ exports.getAvailability = async (filters) => {
       a.start_time ASC
   `;
 
-  // pagination
   const page = Number(filters.page || 1);
   const limit = Number(filters.limit || 10);
-
   const offset = (page - 1) * limit;
+
+  const queryValues = [...values];
 
   query += ` LIMIT $${index} OFFSET $${index + 1}`;
 
-  values.push(limit, offset);
+  queryValues.push(limit, offset);
 
-  const { rows } = await pool.query(query, values);
+  const { rows } = await pool.query(query, queryValues);
 
-  return rows;
+  return {
+    rows,
+    total,
+    page,
+    limit,
+  };
 };
 
 exports.deleteAvailabilityAndHandleAppointments = async (

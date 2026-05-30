@@ -83,6 +83,7 @@ exports.getDoctorAvailability = async (req, res, next) => {
       page: req.query.page || 1,
       limit: req.query.limit || 10,
       userId: req.user.id,
+      availabilityId: req.query.availabilityId,
     };
 
     const availability = await doctorService.getDoctorAvailability(filters);

@@ -95,9 +95,20 @@ exports.updateDoctorAvailability = async (userId, availabilityData) => {
 exports.getDoctorAvailability = async (filters) => {
   filters.hidePast = false;
 
-  const rows = await doctorRepo.getAvailability(filters);
+  const result = await doctorRepo.getAvailability(filters);
 
-  return formatAvailabilityResponse(rows, filters.userId);
+  return {
+    availability: formatAvailabilityResponse(result.rows, filters.userId),
+
+    pagination: {
+      page: filters.page,
+      limit: filters.limit,
+      total: result.total,
+      totalPages: Math.ceil(result.total / filters.limit),
+      // hasNextPage: filters.page < Math.ceil(result.total / filters.limit),
+      // hasPreviousPage: filters.page > 1,
+    },
+  };
 };
 
 exports.deleteDoctorAvailability = async (userId, availabilityIds, reason) => {

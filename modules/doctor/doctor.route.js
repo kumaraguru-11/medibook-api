@@ -24,7 +24,7 @@ router.use(authMiddleware, allowRoles("DOCTOR"));
 
 router.patch("/me", doctorController.updateDoctorProfile);
 router.post("/availability", doctorController.createDoctorAvailability);
-router.patch("/availability", doctorController.updateDoctorAvailability);
+router.put("/availability", doctorController.updateDoctorAvailability);
 router.get("/availability", doctorController.getDoctorAvailability);
 router.delete("/availability", doctorController.deleteDoctorAvailability);
 
