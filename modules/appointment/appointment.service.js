@@ -47,13 +47,7 @@ exports.createAppointment = async (userId, appointmentData) => {
   const isAvailabilityExists =
     await doctorRepo.checkAvailabilityExists(appointmentData);
 
-  if (!isAvailabilityExists) {
-    throw new ApiError("Doctor is not available for selected time", 400);
-  }
-
-  const isDoctorBlocked = await doctorRepo.checkDoctorBlocked(appointmentData);
-
-  if (isDoctorBlocked) {
+  if (Object.keys(isAvailabilityExists).length === 0) {
     throw new ApiError("Doctor is not available for selected time", 400);
   }
 
@@ -75,6 +69,15 @@ exports.getAppointments = async (filters) => {
 
   if (filters.status && !allowedStatuses.includes(filters.status)) {
     throw new ApiError("Invalid appointment status", 400);
+  }
+
+  if (filters.doctorId) {
+    const doctor = await doctorRepo.getDoctorByUserId(filters.doctorId);
+    if (!doctor) {
+      throw new ApiError("Doctor not found", 404);
+    }
+
+    filters.doctorId = doctor.id;
   }
 
   // auto change the status SCHEDULED -> COMPLETED

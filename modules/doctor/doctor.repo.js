@@ -224,18 +224,15 @@ exports.updateAvailabilityAndHandleAppointments = async (
   try {
     await client.query("BEGIN");
 
-    // Create doctor blocks from old availability slots
-    const blocks = existingSlots.map((slot, index) => ({
-      date: slot.date,
-      start_time: slot.start_time,
-      end_time: slot.end_time,
-      reason: newSlots[index]?.reason?.trim() || "Doctor unavailable",
-    }));
-
+    // INSERT OLD AVAILABILITY INTO DOCTOR_BLOCKS
     const createdBlocks = [];
 
-    for (const block of blocks) {
-      const blockQuery = `
+    for (const slot of existingSlots) {
+      const matchingNewSlot = newSlots.find(
+        (newSlot) => Number(newSlot.id) === Number(slot.id),
+      );
+
+      const query = `
         INSERT INTO doctor_blocks
         (
           doctor_id,
@@ -244,64 +241,36 @@ exports.updateAvailabilityAndHandleAppointments = async (
           end_time,
           reason
         )
-        VALUES ($1, $2, $3, $4,$5)
+        VALUES ($1,$2,$3,$4,$5)
         RETURNING *;
       `;
 
-      const { rows } = await client.query(blockQuery, [
+      const { rows } = await client.query(query, [
         doctorId,
-        block.date,
-        block.start_time,
-        block.end_time,
-        block.reason,
+        slot.date,
+        slot.start_time,
+        slot.end_time,
+        matchingNewSlot?.reason?.trim() || "Doctor unavailable",
       ]);
 
       createdBlocks.push(rows[0]);
     }
 
-    // Find affected appointments
-    const affectedAppointmentIds = [];
-
-    for (const block of createdBlocks) {
-      const appointments = await appointmentRepo.getAffectedAppointments(
-        // client,
-        doctorId,
-        block,
-      );
-
-      affectedAppointmentIds.push(
-        ...appointments.map((appointment) => appointment.id),
-      );
-    }
-
-    // Remove duplicate appointment ids
-    const uniqueAppointmentIds = [...new Set(affectedAppointmentIds)];
-
-    // Mark appointments for reschedule
-    if (uniqueAppointmentIds.length > 0) {
-      await appointmentRepo.markAppointmentsForReschedule(
-        // client,
-        uniqueAppointmentIds,
-      );
-    }
-
-    // Delete old availability slots
+    // DELETE OLD AVAILABILITY
     const slotIds = existingSlots.map((slot) => slot.id);
 
     await client.query(
       `
       DELETE FROM availability
       WHERE doctor_id = $1
-        AND id = ANY($2::int[])
+      AND id = ANY($2::int[])
       `,
       [doctorId, slotIds],
     );
 
-    // Insert new availability slots
+    // INSERT NEW AVAILABILITY
     const dates = newSlots.map((slot) => slot.date);
-
     const startTimes = newSlots.map((slot) => slot.startTime);
-
     const endTimes = newSlots.map((slot) => slot.endTime);
 
     const insertAvailabilityQuery = `
@@ -325,11 +294,28 @@ exports.updateAvailabilityAndHandleAppointments = async (
       [doctorId, dates, startTimes, endTimes],
     );
 
+    // FIND APPOINTMENTS NO LONGER COVERED
+    const affectedAppointments =
+      await appointmentRepo.getAppointmentsOutsideAvailability(
+        client,
+        doctorId,
+        [...new Set(dates)],
+      );
+
+    // MARK RESCHEDULE_REQUIRED
+    if (affectedAppointments.length > 0) {
+      await appointmentRepo.markAppointmentsForReschedule(
+        client,
+        affectedAppointments.map((a) => a.id),
+      );
+    }
+
     await client.query("COMMIT");
 
     return {
       updatedAvailability,
-      affectedAppointments: uniqueAppointmentIds.length,
+      createdBlocks,
+      affectedAppointments: affectedAppointments.length,
     };
   } catch (e) {
     await client.query("ROLLBACK");
@@ -337,29 +323,6 @@ exports.updateAvailabilityAndHandleAppointments = async (
   } finally {
     client.release();
   }
-};
-
-exports.checkDoctorBlocked = async (availability) => {
-  const query = `
-    SELECT *
-    FROM doctor_blocks
-    WHERE doctor_id = $1
-      AND date = $2
-      AND start_time < $4
-      AND end_time > $3
-    LIMIT 1;
-  `;
-
-  const values = [
-    availability.doctor_id,
-    availability.appointment_date,
-    availability.start_time,
-    availability.end_time,
-  ];
-
-  const { rows } = await pool.query(query, values);
-
-  return rows[0];
 };
 
 // exports.getAvailability = async (filters) => {
@@ -614,6 +577,27 @@ exports.getAvailability = async (filters) => {
   };
 };
 
+exports.hasOverlappingDoctorBlock = async (client, doctorId, slot) => {
+  const query = `
+    SELECT 1
+    FROM doctor_blocks
+    WHERE doctor_id = $1
+      AND date = $2
+      AND start_time < $4
+      AND end_time > $3
+    LIMIT 1
+  `;
+
+  const { rows } = await client.query(query, [
+    doctorId,
+    slot.date,
+    slot.start_time,
+    slot.end_time,
+  ]);
+
+  return rows.length > 0;
+};
+
 exports.deleteAvailabilityAndHandleAppointments = async (
   doctorId,
   existingSlots,
@@ -624,45 +608,47 @@ exports.deleteAvailabilityAndHandleAppointments = async (
   try {
     await client.query("BEGIN");
 
-    // Create doctor blocks
-    const blockValues = [];
-    const blockPlaceholders = [];
-
-    let index = 1;
+    // CREATE DOCTOR BLOCKS (IF NOT EXISTS)
+    const createdBlocks = [];
 
     for (const slot of existingSlots) {
-      blockPlaceholders.push(
-        `($${index++}, $${index++}, $${index++}, $${index++}, $${index++})`,
+      const hasOverlap = await exports.hasOverlappingDoctorBlock(
+        client,
+        doctorId,
+        slot,
       );
 
-      blockValues.push(
-        doctorId,
-        slot.date,
-        slot.start_time,
-        slot.end_time,
-        reason,
-      );
+      // Skip block creation if already covered
+      if (!hasOverlap) {
+        const blockQuery = `
+          INSERT INTO doctor_blocks
+          (
+            doctor_id,
+            date,
+            start_time,
+            end_time,
+            reason
+          )
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING *;
+        `;
+
+        const { rows } = await client.query(blockQuery, [
+          doctorId,
+          slot.date,
+          slot.start_time,
+          slot.end_time,
+          reason,
+        ]);
+
+        createdBlocks.push(rows[0]);
+      }
     }
 
-    const blockQuery = `
-      INSERT INTO doctor_blocks
-      (
-        doctor_id,
-        date,
-        start_time,
-        end_time,
-        reason
-      )
-      VALUES ${blockPlaceholders.join(", ")}
-      RETURNING *;
-    `;
-
-    const { rows: createdBlocks } = await client.query(blockQuery, blockValues);
-
-    // Find affected appointments
+    // FIND AFFECTED APPOINTMENTS
     const affectedAppointmentIds = [];
 
-    for (const block of createdBlocks) {
+    for (const slot of existingSlots) {
       const appointmentQuery = `
         SELECT id
         FROM appointments
@@ -675,32 +661,32 @@ exports.deleteAvailabilityAndHandleAppointments = async (
 
       const { rows } = await client.query(appointmentQuery, [
         doctorId,
-        block.date,
-        block.start_time,
-        block.end_time,
+        slot.date,
+        slot.start_time,
+        slot.end_time,
       ]);
 
       affectedAppointmentIds.push(...rows.map((appointment) => appointment.id));
     }
 
-    // Remove duplicates
+    // REMOVE DUPLICATES
     const uniqueAppointmentIds = [...new Set(affectedAppointmentIds)];
 
-    // Mark appointments
+    // MARK APPOINTMENTS
     if (uniqueAppointmentIds.length > 0) {
       await client.query(
         `
         UPDATE appointments
         SET
           status = 'RESCHEDULE_REQUIRED',
-          priority = true
+          priority = TRUE
         WHERE id = ANY($1::int[])
         `,
         [uniqueAppointmentIds],
       );
     }
 
-    // Delete availability
+    // DELETE AVAILABILITY
     const slotIds = existingSlots.map((slot) => slot.id);
 
     const deleteQuery = `
@@ -719,6 +705,7 @@ exports.deleteAvailabilityAndHandleAppointments = async (
 
     return {
       deletedAvailability,
+      createdBlocks,
       affectedAppointments: uniqueAppointmentIds.length,
     };
   } catch (e) {

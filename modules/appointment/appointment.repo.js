@@ -49,7 +49,7 @@ exports.getAppointments = async (filters) => {
       ON d.id = a.doctor_id
 
     INNER JOIN users u 
-      ON u.id = a.doctor_id
+      ON u.id = d.user_id
 
     LEFT JOIN patient_details pd 
       ON pd.appointment_id = a.id
@@ -158,38 +158,47 @@ exports.cancelAppointment = async (appointmentId) => {
   return rows[0];
 };
 
-exports.getAffectedAppointments = async (doctorId, block) => {
+exports.getAppointmentsOutsideAvailability = async (
+  client,
+  doctorId,
+  dates,
+) => {
   const query = `
-    SELECT *
-    FROM appointments
-    WHERE doctor_id = $1
-      AND appointment_date = $2
-      AND status = 'SCHEDULED'
-      AND start_time < $4
-      AND end_time > $3
+    SELECT a.*
+    FROM appointments a
+    WHERE a.doctor_id = $1
+      AND a.appointment_date = ANY($2::date[])
+      AND a.status = 'SCHEDULED'
+
+      AND NOT EXISTS (
+        SELECT 1
+        FROM availability av
+        WHERE av.doctor_id = a.doctor_id
+          AND av.date = a.appointment_date
+          AND a.start_time >= av.start_time
+          AND a.end_time <= av.end_time
+      )
   `;
 
-  const values = [doctorId, block.date, block.start_time, block.end_time];
-
-  const { rows } = await pool.query(query, values);
+  const { rows } = await client.query(query, [doctorId, dates]);
 
   return rows;
 };
 
 
-exports.markAppointmentsForReschedule = async (appointmentIds) => {
+exports.markAppointmentsForReschedule = async (client, appointmentIds) => {
   if (!appointmentIds.length) return [];
 
   const query = `
     UPDATE appointments
     SET
       status = 'RESCHEDULE_REQUIRED',
-      priority = true
+      priority = TRUE
     WHERE id = ANY($1::int[])
     RETURNING *;
   `;
 
-  const { rows } = await pool.query(query, [appointmentIds]);
+  const { rows } = await client.query(query, [appointmentIds]);
 
   return rows;
 };
