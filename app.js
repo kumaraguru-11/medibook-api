@@ -16,6 +16,10 @@ app.use(cors());
 app.use(helmet());
 app.use(express.json());
 
+app.get("/health", (req, res) => {
+  res.status(200).json({ message: "API is healthy" });
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/doctor", doctorRoutes);
