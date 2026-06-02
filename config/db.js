@@ -1,10 +1,10 @@
 const { Pool, types } = require("pg");
-const { db } = require("./env");
+const { db,productionDB } = require("./env");
 
 // Prevent DATE from converting to JS Date object
 types.setTypeParser(1082, (value) => value);
 
-const pool = new Pool(db);
+const pool = new Pool(productionDB);
 
 pool.on("connect", () => console.log("connected to the database"));
 
