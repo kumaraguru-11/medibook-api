@@ -12,7 +12,12 @@ const notificationRoutes = require("./modules/notification/notification.route");
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+  }),
+);
 app.use(helmet());
 app.use(express.json());
 
