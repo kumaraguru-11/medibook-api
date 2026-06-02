@@ -16,13 +16,22 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE","PATCH"],
+    allowHeaders: ["Content-Type", "Authorization"],
   }),
 );
 app.use(helmet());
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.send("Backend is running");
+});
+
 app.get("/health", (req, res) => {
-  res.status(200).json({ message: "API is healthy" });
+  res.status(200).json({
+    success: true,
+    message: "API is healthy",
+  });
 });
 
 app.use("/api/auth", authRoutes);
