@@ -4,10 +4,7 @@
   "description": "RESTful API for a doctor appointment booking application enabling patient registration, doctor discovery, scheduling, and appointment management.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "node build.js",
     "start": "nodemon index.js",
-    "serve": "node dist/index.js",
     "migrate": "node migrations/script/migrate.js"
   },
   "author": "kumaraguru.s",
