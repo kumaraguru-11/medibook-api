@@ -98,7 +98,11 @@ exports.getDoctorAvailability = async (filters) => {
   const result = await doctorRepo.getAvailability(filters);
 
   return {
-    availability: formatAvailabilityResponse(result.rows, filters.userId),
+    availability: formatAvailabilityResponse(
+      result.rows,
+      filters.userId,
+      false,
+    ),
 
     pagination: {
       page: filters.page,

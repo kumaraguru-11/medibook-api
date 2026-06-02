@@ -20,7 +20,6 @@ exports.getUserById = async (user) => {
 
   if (existingUser.role === "DOCTOR") {
     const doctorDetails = await doctorRepo.getDoctorByUserId(id);
-    console.log(doctorDetails)
     return {
       id: existingUser.id,
       name: existingUser.name,
