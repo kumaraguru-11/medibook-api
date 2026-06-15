@@ -474,7 +474,7 @@ exports.getAvailability = async (filters) => {
 
   // based on availability id
   if (filters.availabilityId) {
-    whereClause += ` AND a.id <= $${index}`;
+    whereClause += ` AND a.id = $${index}`;
     values.push(filters.availabilityId);
     index++;
   }
