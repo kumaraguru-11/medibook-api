@@ -83,21 +83,15 @@ function isPastSlot(date, startTime) {
   const [year, month, day] = date.split("-").map(Number);
   const [hour, minute] = startTime.split(":").map(Number);
 
-  const slotDateTime = new Date(year, month - 1, day, hour, minute);
-  const now = new Date();
-
-  console.log("================================");
-  console.log(
-    "Server Timezone:",
-    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  const nowInIST = new Date(
+    new Date().toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata",
+    }),
   );
-  console.log("Server Now:", now.toString());
-  console.log("Server Now ISO:", now.toISOString());
-  console.log("Slot:", slotDateTime.toString());
-  console.log("Slot ISO:", slotDateTime.toISOString());
-  console.log("Expired:", slotDateTime < now);
 
-  return slotDateTime < now;
+  const slotDateTime = new Date(year, month - 1, day, hour, minute);
+
+  return slotDateTime < nowInIST;
 }
 
 function generate30MinuteSlots(row, currentUserId) {
