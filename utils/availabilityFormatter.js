@@ -81,8 +81,15 @@ function add30Minutes(time) {
 
 function isPastSlot(date, startTime) {
   const slotDateTime = new Date(`${date}T${startTime}:00`);
+  const now = new Date();
 
-  return slotDateTime < new Date();
+  console.log("date:", date);
+  console.log("startTime:", startTime);
+  console.log("slotDateTime:", slotDateTime);
+  console.log("now:", now);
+  console.log("timezone:", Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+  return slotDateTime < now;
 }
 
 function generate30MinuteSlots(row, currentUserId) {
