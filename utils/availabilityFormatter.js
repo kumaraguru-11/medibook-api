@@ -83,9 +83,21 @@ function isPastSlot(date, startTime) {
   const [year, month, day] = date.split("-").map(Number);
   const [hour, minute] = startTime.split(":").map(Number);
 
-  const slotDateTime = new Date(year, month - 1, day, hour, minute, 0, 0);
+  const slotDateTime = new Date(year, month - 1, day, hour, minute);
+  const now = new Date();
 
-  return slotDateTime.getTime() < Date.now();
+  console.log("================================");
+  console.log(
+    "Server Timezone:",
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  );
+  console.log("Server Now:", now.toString());
+  console.log("Server Now ISO:", now.toISOString());
+  console.log("Slot:", slotDateTime.toString());
+  console.log("Slot ISO:", slotDateTime.toISOString());
+  console.log("Expired:", slotDateTime < now);
+
+  return slotDateTime < now;
 }
 
 function generate30MinuteSlots(row, currentUserId) {
@@ -119,7 +131,6 @@ function generate30MinuteSlots(row, currentUserId) {
 
     currentStart = currentEnd;
   }
-
   return slots;
 }
 
@@ -144,16 +155,16 @@ function formatAvailabilityResponse(
         specialty: row.specialty,
       },
 
-      date: row.date,
+        date: row.date,
 
-      availability: {
-        startTime: row.start_time,
-        endTime: row.end_time,
-      },
+        availability: {
+          startTime: row.start_time,
+          endTime: row.end_time,
+        },
 
-      slots,
-    };
-  });
+        slots,
+      };
+    })
 }
 
 module.exports = {
